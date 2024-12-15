@@ -88,7 +88,7 @@
                 // إذا تم العثور على باركود جديد، تحديث النتيجة فقط إذا كان مختلف
                 if (code.data !== lastScannedBarcode) {
                     lastScannedBarcode = code.data; // تخزين الباركود الحالي
-                    output.textContent = `رمز QR: ${code.data}`; // عرض الباركود
+                    output.textContent = `تم اكتشاف رمز QR: ${code.data}`; // عرض الباركود
                     console.log(`تم اكتشاف رمز QR: ${code.data}`);
                 }
 
@@ -103,6 +103,9 @@
                     code.location.bottomRightCorner.y - code.location.topLeftCorner.y
                 );
                 context.stroke();
+
+                // عرض رسالة بعد رسم المربع
+                output.textContent += " - تم رسم مربع حول الباركود."; 
             }
 
             // استدعاء الفحص مجددًا
