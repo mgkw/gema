@@ -16,7 +16,7 @@ async function setupCamera() {
     }
 }
 
-// قراءة الباركود من الصورة
+// قراءة الباركود وتحديده بمستطيل
 function scanBarcode() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -24,19 +24,33 @@ function scanBarcode() {
     // رسم إطار الفيديو على الكانفاس
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // استخراج الصورة وتحليلها
+    // استخراج بيانات الصورة
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-    // استخدام مكتبة jsQR لتحليل الباركود
+    // تحليل الصورة باستخدام jsQR
     const code = jsQR(imageData.data, imageData.width, imageData.height);
+
     if (code) {
+        // عرض بيانات الباركود
         output.textContent = `Barcode: ${code.data}`;
         console.log(`Barcode detected: ${code.data}`);
+
+        // رسم مستطيل حول الباركود
+        context.beginPath();
+        context.lineWidth = 4;
+        context.strokeStyle = "red";
+        context.rect(
+            code.location.topLeftCorner.x,
+            code.location.topLeftCorner.y,
+            code.location.bottomRightCorner.x - code.location.topLeftCorner.x,
+            code.location.bottomRightCorner.y - code.location.topLeftCorner.y
+        );
+        context.stroke();
     } else {
         output.textContent = "Scanning...";
     }
 
-    // متابعة الفحص
+    // استدعاء الفحص مجددًا
     requestAnimationFrame(scanBarcode);
 }
 
