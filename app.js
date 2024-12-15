@@ -3,16 +3,32 @@ const canvas = document.getElementById("canvas");
 const context = canvas.getContext("2d");
 const output = document.getElementById("output");
 
+// عرض رسالة للمستخدم
+function showPermissionMessage(message) {
+    output.textContent = message;
+}
+
 // إعداد الكاميرا
 async function setupCamera() {
     try {
+        showPermissionMessage("Requesting camera access...");
+        
         const stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" }
         });
+
         video.srcObject = stream;
+        showPermissionMessage("Camera is ready. Scanning for barcode...");
     } catch (err) {
         console.error("Camera setup failed:", err);
-        alert("Failed to access the camera.");
+
+        if (err.name === "NotAllowedError") {
+            showPermissionMessage("Camera access was denied. Please allow access and reload the page.");
+        } else if (err.name === "NotFoundError") {
+            showPermissionMessage("No camera device found. Please connect a camera and try again.");
+        } else {
+            showPermissionMessage("An unexpected error occurred: " + err.message);
+        }
     }
 }
 
