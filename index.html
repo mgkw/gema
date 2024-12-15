@@ -96,11 +96,17 @@
                 context.beginPath();
                 context.lineWidth = 4;
                 context.strokeStyle = "red";
+                // التأكد من أن الإحداثيات صحيحة
+                const { topLeftCorner, bottomRightCorner } = code.location;
+
+                console.log("إحداثيات الباركود:", topLeftCorner, bottomRightCorner);
+
+                // رسم مستطيل حول الباركود
                 context.rect(
-                    code.location.topLeftCorner.x,
-                    code.location.topLeftCorner.y,
-                    code.location.bottomRightCorner.x - code.location.topLeftCorner.x,
-                    code.location.bottomRightCorner.y - code.location.topLeftCorner.y
+                    topLeftCorner.x,
+                    topLeftCorner.y,
+                    bottomRightCorner.x - topLeftCorner.x,
+                    bottomRightCorner.y - topLeftCorner.y
                 );
                 context.stroke();
 
