@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner</title>
+    <title>ماسح الباركود</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -29,8 +29,8 @@
     </style>
 </head>
 <body>
-    <h1>QR Code Scanner</h1>
-    <p id="output">Initializing camera...</p>
+    <h1>ماسح الباركود</h1>
+    <p id="output">جاري تهيئة الكاميرا...</p>
     <video id="video" autoplay></video>
     <canvas id="canvas"></canvas>
 
@@ -49,23 +49,23 @@
         // إعداد الكاميرا
         async function setupCamera() {
             try {
-                output.textContent = "Requesting camera access...";
+                output.textContent = "جاري طلب إذن الوصول إلى الكاميرا...";
                 
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" } // الكاميرا الخلفية
                 });
 
                 video.srcObject = stream;
-                output.textContent = "Camera is ready. Scanning for QR codes...";
+                output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
             } catch (err) {
-                console.error("Camera setup failed:", err);
+                console.error("فشل إعداد الكاميرا:", err);
 
                 if (err.name === "NotAllowedError") {
-                    output.textContent = "Camera access was denied. Please allow access and reload the page.";
+                    output.textContent = "تم رفض الوصول إلى الكاميرا. من فضلك سمح للوصول وأعد تحميل الصفحة.";
                 } else if (err.name === "NotFoundError") {
-                    output.textContent = "No camera was found. Please connect a camera and try again.";
+                    output.textContent = "لم يتم العثور على كاميرا. من فضلك قم بتوصيل كاميرا وحاول مرة أخرى.";
                 } else {
-                    output.textContent = "An unexpected error occurred: " + err.message;
+                    output.textContent = "حدث خطأ غير متوقع: " + err.message;
                 }
             }
         }
@@ -88,8 +88,8 @@
                 // إذا تم العثور على باركود جديد، تحديث النتيجة فقط إذا كان مختلف
                 if (code.data !== lastScannedBarcode) {
                     lastScannedBarcode = code.data; // تخزين الباركود الحالي
-                    output.textContent = `QR Code: ${code.data}`; // عرض الباركود
-                    console.log(`QR Code detected: ${code.data}`);
+                    output.textContent = `رمز QR: ${code.data}`; // عرض الباركود
+                    console.log(`تم اكتشاف رمز QR: ${code.data}`);
                 }
 
                 // رسم مستطيل حول الباركود
