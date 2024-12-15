@@ -59,14 +59,7 @@
                 output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
             } catch (err) {
                 console.error("فشل إعداد الكاميرا:", err);
-
-                if (err.name === "NotAllowedError") {
-                    output.textContent = "تم رفض الوصول إلى الكاميرا. من فضلك سمح للوصول وأعد تحميل الصفحة.";
-                } else if (err.name === "NotFoundError") {
-                    output.textContent = "لم يتم العثور على كاميرا. من فضلك قم بتوصيل كاميرا وحاول مرة أخرى.";
-                } else {
-                    output.textContent = "حدث خطأ غير متوقع: " + err.message;
-                }
+                output.textContent = "فشل في الوصول إلى الكاميرا. من فضلك تأكد من إذن الوصول.";
             }
         }
 
@@ -85,20 +78,21 @@
             const code = jsQR(imageData.data, imageData.width, imageData.height);
 
             if (code) {
+                console.log("تم العثور على باركود:", code.data);  // طباعة بيانات الباركود في وحدة التحكم
+
                 // إذا تم العثور على باركود جديد، تحديث النتيجة فقط إذا كان مختلف
                 if (code.data !== lastScannedBarcode) {
                     lastScannedBarcode = code.data; // تخزين الباركود الحالي
                     output.textContent = `تم اكتشاف رمز QR: ${code.data}`; // عرض الباركود
-                    console.log(`تم اكتشاف رمز QR: ${code.data}`);
                 }
 
                 // رسم مستطيل حول الباركود
                 context.beginPath();
                 context.lineWidth = 4;
                 context.strokeStyle = "red";
-                // التأكد من أن الإحداثيات صحيحة
                 const { topLeftCorner, bottomRightCorner } = code.location;
 
+                // طباعة الإحداثيات في وحدة التحكم للتحقق
                 console.log("إحداثيات الباركود:", topLeftCorner, bottomRightCorner);
 
                 // رسم مستطيل حول الباركود
@@ -112,6 +106,8 @@
 
                 // عرض رسالة بعد رسم المربع
                 output.textContent += " - تم رسم مربع حول الباركود."; 
+            } else {
+                console.log("لم يتم العثور على باركود في هذه الإطار.");
             }
 
             // استدعاء الفحص مجددًا
