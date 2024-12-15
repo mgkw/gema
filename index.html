@@ -18,7 +18,14 @@
             border-radius: 8px;
         }
         canvas {
-            display: none;
+            width: 100%;
+            max-width: 600px;
+            display: block;
+            margin: 0 auto;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
         }
         .scanner-line {
             position: absolute;
@@ -37,11 +44,11 @@
 </head>
 <body>
     <h1>Barcode Scanner</h1>
-    <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
-    <div class="scanner-line"></div>
+    <div style="position: relative; display: inline-block;">
+        <video id="video" autoplay></video>
+        <canvas id="canvas"></canvas>
+    </div>
     <p id="output">Scan a barcode...</p>
 
-    <script src="app.js"></script>
-</body>
-</html>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <script src="app.j
