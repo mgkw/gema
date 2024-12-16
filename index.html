@@ -171,21 +171,23 @@
                         }
                     }
 
-                    lastDetectedBarcode = barcodeData;
-                    lastDetectedLocation = code.location;
+                    // إذا كانت البيانات مختلفة ولكن الموقع نفسه، يُعتبر باركود جديد
+                    if (barcodeData !== lastDetectedBarcode) {
+                        output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
+                        drawBarcodeFrame(code.location, "green", "✅");
 
-                    // مسح الباركود ورسم الإطار
-                    output.textContent = `تم اكتشاف باركود: ${barcodeData}`;
-                    drawBarcodeFrame(code.location, "green", "✅");
+                        // تحديث قائمة الباركودات
+                        updateBarcodeList(barcodeData, "✅");
 
-                    // تحديث قائمة الباركودات
-                    updateBarcodeList(barcodeData, "✅");
+                        lastDetectedBarcode = barcodeData;
+                        lastDetectedLocation = code.location;
 
-                    // إعادة ضبط المؤقت لإبقاء الإطار مرئيًا لفترة
-                    if (frameTimer) clearTimeout(frameTimer);
-                    frameTimer = setTimeout(() => {
-                        context.clearRect(0, 0, overlay.width, overlay.height); // مسح الإطار بعد مرور الوقت
-                    }, frameTimeout);
+                        // إعادة ضبط المؤقت لإبقاء الإطار مرئيًا لفترة
+                        if (frameTimer) clearTimeout(frameTimer);
+                        frameTimer = setTimeout(() => {
+                            context.clearRect(0, 0, overlay.width, overlay.height); // مسح الإطار بعد مرور الوقت
+                        }, frameTimeout);
+                    }
                 }
             }
 
