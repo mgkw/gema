@@ -225,6 +225,7 @@
                     if (!repeatedBarcodes.includes(barcodeData)) {
                         repeatedBarcodes.push(barcodeData);
                     }
+                    updateRepeatedList();
                 } else if (status === "error") {
                     drawBarcodeFrame(code.location, status, barcodeData, 0);
                 }
