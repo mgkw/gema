@@ -115,13 +115,18 @@
                 context.beginPath();
                 context.lineWidth = 4;
                 context.strokeStyle = "red";
-                const { topLeftCorner, bottomRightCorner } = code.location;
-                context.rect(
-                    topLeftCorner.x,
-                    topLeftCorner.y,
-                    bottomRightCorner.x - topLeftCorner.x,
-                    bottomRightCorner.y - topLeftCorner.y
-                );
+
+                const topLeft = code.location.topLeftCorner;
+                const topRight = code.location.topRightCorner;
+                const bottomRight = code.location.bottomRightCorner;
+                const bottomLeft = code.location.bottomLeftCorner;
+
+                // رسم الإطار حول الباركود
+                context.moveTo(topLeft.x, topLeft.y);
+                context.lineTo(topRight.x, topRight.y);
+                context.lineTo(bottomRight.x, bottomRight.y);
+                context.lineTo(bottomLeft.x, bottomLeft.y);
+                context.closePath();
                 context.stroke();
             } else {
                 console.log("لم يتم العثور على باركود.");
