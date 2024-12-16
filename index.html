@@ -58,9 +58,6 @@
         <video id="video" autoplay playsinline></video>
         <canvas id="overlay"></canvas>
     </div>
-    <div class="barcode-list" id="barcode-list">
-        آخر 5 باركودات:
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
     <script>
@@ -68,10 +65,10 @@
         const overlay = document.getElementById("overlay");
         const context = overlay.getContext("2d");
         const output = document.getElementById("output");
-        const barcodeListDiv = document.getElementById("barcode-list");
 
-        const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع الوقت
-        const lastBarcodes = []; // لتخزين آخر 5 باركودات
+        const barcodeDatabase = new Set(); // قاعدة بيانات لتخزين الباركودات المقروءة
+        let lastScanTime = 0; // الوقت لآخر مسح
+        let lastBarcode = null; // لتخزين آخر باركود تم مسحه
 
         async function setupCamera() {
             try {
@@ -87,19 +84,10 @@
             }
         }
 
-        function updateBarcodeList(barcode, statusIcon) {
-            if (lastBarcodes.length >= 5) {
-                lastBarcodes.shift(); // إزالة الأقدم
-            }
-            lastBarcodes.push({ barcode, statusIcon });
-
-            barcodeListDiv.innerHTML = "آخر 5 باركودات:<br>" +
-                lastBarcodes.map(item => `${item.statusIcon} ${item.barcode}`).join("<br>");
-        }
-
-        function drawBarcodeFrame(location, color, icon) {
+        function drawBarcodeFrame(location, color) {
             const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
 
+            // رسم الإطار حول الباركود
             context.beginPath();
             context.moveTo(topLeftCorner.x, topLeftCorner.y);
             context.lineTo(topRightCorner.x, topRightCorner.y);
@@ -109,24 +97,6 @@
             context.lineWidth = 4;
             context.strokeStyle = color;
             context.stroke();
-
-            context.fillStyle = color;
-            context.font = "bold 24px Arial";
-            context.fillText(icon, topLeftCorner.x + 10, topLeftCorner.y + 30);
-        }
-
-        function isBarcodeDuplicate(barcodeData) {
-            const currentTime = new Date().getTime();
-            if (barcodeDatabase.has(barcodeData)) {
-                const lastScanTime = barcodeDatabase.get(barcodeData);
-                const timeDifference = currentTime - lastScanTime;
-
-                // إذا مر أكثر من 10 ثوانٍ، يعتبر الباركود مكررًا
-                if (timeDifference > 10000) {
-                    return true;
-                }
-            }
-            return false;
         }
 
         function scanBarcode() {
@@ -146,27 +116,20 @@
 
             if (code) {
                 const barcodeData = code.data;
+                const currentTime = new Date().getTime();
 
-                if (isBarcodeDuplicate(barcodeData)) {
-                    // إذا كان الباركود مكررًا
-                    output.textContent = `تم اكتشاف باركود مكرر: ${barcodeData}`;
-                    drawBarcodeFrame(code.location, "red", "❌");
-                } else {
-                    // إذا كان الباركود جديدًا
-                    output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
-                    drawBarcodeFrame(code.location, "green", "✅");
+                // إذا مر أكثر من ثانية بين القراءة الأخيرة وهذا الباركود، اعتبره جديدًا
+                if (barcodeData !== lastBarcode) { // إذا كانت القراءة مختلفة عن آخر باركود تم مسحه
+                    if (!barcodeDatabase.has(barcodeData)) {
+                        barcodeDatabase.add(barcodeData); // حفظ الباركود كجديد
+                        output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
+                        drawBarcodeFrame(code.location, "green");
 
-                    // إضافة الباركود إلى قاعدة البيانات مع الوقت الحالي
-                    const currentTime = new Date().getTime();
-                    barcodeDatabase.set(barcodeData, currentTime);
-
-                    // تحديث قائمة الباركودات
-                    updateBarcodeList(barcodeData, "✅");
-
-                    // مسح الإطار بعد فترة
-                    setTimeout(() => {
-                        context.clearRect(0, 0, overlay.width, overlay.height);
-                    }, 3000);
+                        lastBarcode = barcodeData; // تحديث آخر باركود تم مسحه
+                    } else {
+                        output.textContent = `تم اكتشاف باركود مكرر: ${barcodeData}`;
+                        drawBarcodeFrame(code.location, "red");
+                    }
                 }
             }
 
