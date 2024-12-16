@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماسح الباركود مع إطار</title>
+    <title>ماسح الباركود مع إطار وعلامة صح</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,6 +17,7 @@
             max-width: 600px;
             margin-top: 20px;
             border: 2px solid #333;
+            position: relative;
         }
         canvas {
             display: none;
@@ -26,50 +27,26 @@
             font-size: 18px;
             color: #333;
         }
-        .result_table_body {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        .resultRow {
-            display: flex;
-            align-items: center;
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin: 5px;
-            background-color: #fff;
-            border-radius: 5px;
-        }
-        .icon {
-            width: 24px;
-            height: 24px;
-        }
-        .scan_text {
-            margin-left: 10px;
-            font-size: 16px;
-            color: #0B63E5;
+        .checkmark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 100px;
+            color: green;
+            display: none;
+            z-index: 2;
         }
     </style>
 </head>
 <body>
-    <h1>ماسح الباركود مع إطار</h1>
+    <h1>ماسح الباركود مع إطار وعلامة صح</h1>
     <p id="output">جاري تهيئة الكاميرا...</p>
-    <video id="video" autoplay></video>
+    <div style="position: relative; display: inline-block;">
+        <video id="video" autoplay></video>
+        <span id="checkmark" class="checkmark">✔</span>
+    </div>
     <canvas id="canvas"></canvas>
-
-    <tbody id="qrcs_html" class="result_table_body">
-        <tr class="resultRow" id="result_template" style="display: none;">
-            <td>1</td>
-            <td><i data-tooltip-target="tooltip_1" class="icon icon-lowercase icon-lg-3 bg-[#0B63E5]"></i>
-                <div id="tooltip_1" role="tooltip" class="absolute overflow-hidden z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip">
-                    Text
-                </div>
-            </td>
-            <td>
-                <div class="scan_text"><div class="line-clamp-2">Text: <span class="barcode_data"></span></div></div>
-            </td>
-        </tr>
-    </tbody>
 
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
 
@@ -78,8 +55,7 @@
         const canvas = document.getElementById("canvas");
         const context = canvas.getContext("2d");
         const output = document.getElementById("output");
-        const resultTable = document.getElementById("qrcs_html");
-        const resultTemplate = document.getElementById("result_template");
+        const checkmark = document.getElementById("checkmark");
 
         let lastScannedBarcode = null;
 
@@ -109,9 +85,10 @@
                 if (code.data !== lastScannedBarcode) {
                     lastScannedBarcode = code.data;
                     output.textContent = `تم اكتشاف رمز QR: ${code.data}`;
-                    addResultRow(code.data);
+                    showCheckmark();
                 }
 
+                // رسم الإطار حول الباركود
                 context.beginPath();
                 context.lineWidth = 4;
                 context.strokeStyle = "red";
@@ -121,25 +98,22 @@
                 const bottomRight = code.location.bottomRightCorner;
                 const bottomLeft = code.location.bottomLeftCorner;
 
-                // رسم الإطار حول الباركود
                 context.moveTo(topLeft.x, topLeft.y);
                 context.lineTo(topRight.x, topRight.y);
                 context.lineTo(bottomRight.x, bottomRight.y);
                 context.lineTo(bottomLeft.x, bottomLeft.y);
                 context.closePath();
                 context.stroke();
-            } else {
-                console.log("لم يتم العثور على باركود.");
             }
 
             requestAnimationFrame(scanBarcode);
         }
 
-        function addResultRow(data) {
-            const newRow = resultTemplate.cloneNode(true);
-            newRow.style.display = "table-row";
-            newRow.querySelector(".barcode_data").textContent = data;
-            resultTable.appendChild(newRow);
+        function showCheckmark() {
+            checkmark.style.display = "block";
+            setTimeout(() => {
+                checkmark.style.display = "none";
+            }, 1000); // اختفاء العلامة بعد ثانية واحدة
         }
 
         setupCamera().then(() => {
