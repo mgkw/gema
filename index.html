@@ -13,21 +13,30 @@
             text-align: center;
             background-color: #121212; /* لون داكن */
             color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
+
         h1 {
             margin-top: 10px;
             color: #0b84ed;
         }
+
         #container {
             position: relative;
             display: inline-block;
+            max-width: 100%;
+            width: 400px;
         }
+
         video {
             width: 100%;
             max-width: 400px;
             border: 2px solid #333;
             border-radius: 10px;
         }
+
         canvas {
             position: absolute;
             top: 0;
@@ -36,11 +45,13 @@
             height: 100%;
             pointer-events: none;
         }
+
         #output {
             margin-top: 10px;
             font-size: 18px;
             color: #0b84ed;
         }
+
         .barcode-list {
             margin-top: 20px;
             font-size: 16px;
@@ -49,6 +60,22 @@
             border-radius: 10px;
             padding: 10px;
             display: inline-block;
+            width: 100%;
+            max-width: 400px;
+            overflow-y: auto;
+            max-height: 150px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 600px) {
+            #container {
+                width: 100%;
+                max-width: 90%;
+            }
+
+            .barcode-list {
+                width: 90%;
+            }
         }
     </style>
 </head>
@@ -109,7 +136,7 @@
                 lastBarcodes.map(item => `${item.statusIcon} ${item.barcode}`).join("<br>");
         }
 
-        function drawBarcodeFrame(location, color, icon) {
+        function drawBarcodeFrame(location, color, statusText) {
             const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
 
             // رسم الإطار
@@ -119,14 +146,14 @@
             context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
             context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
             context.closePath();
-            context.lineWidth = 4;
+            context.lineWidth = 6;
             context.strokeStyle = color;
             context.stroke();
 
-            // وضع أيقونة في الإطار
+            // وضع النص داخل الإطار
             context.fillStyle = color;
-            context.font = "bold 24px Arial";
-            context.fillText(icon, topLeftCorner.x + 10, topLeftCorner.y + 30);
+            context.font = "bold 20px Arial";
+            context.fillText(statusText, topLeftCorner.x + 10, topLeftCorner.y + 30);
         }
 
         function scanBarcode() {
@@ -161,7 +188,7 @@
                     }
 
                     output.textContent = `تم اكتشاف باركود: ${barcodeData} (${statusText})`;
-                    drawBarcodeFrame(code.location, frameColor, statusIcon);
+                    drawBarcodeFrame(code.location, frameColor, statusText);
                     updateBarcodeList(barcodeData, statusIcon);
                 }
             }
