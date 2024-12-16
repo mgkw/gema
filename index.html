@@ -52,6 +52,7 @@
         const output = document.getElementById("output");
 
         let lastScannedBarcode = null;
+        const scannedBarcodes = []; // تخزين آخر 5 باركودات
 
         async function setupCamera() {
             try {
@@ -69,6 +70,19 @@
                 console.error("فشل إعداد الكاميرا:", err);
                 output.textContent = "فشل في الوصول إلى الكاميرا. من فضلك تأكد من إذن الوصول.";
             }
+        }
+
+        function drawBarcodesOnOverlay() {
+            context.font = "16px Arial";
+            context.fillStyle = "white";
+            context.textAlign = "left";
+
+            // رسم آخر 5 باركودات
+            const padding = 10;
+            const lineHeight = 20;
+            scannedBarcodes.slice(-5).forEach((barcode, index) => {
+                context.fillText(`باركود ${index + 1}: ${barcode}`, padding, padding + lineHeight * (index + 1));
+            });
         }
 
         function scanBarcode() {
@@ -90,6 +104,7 @@
                 const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
 
                 if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
+                    // رسم إطار حول الباركود
                     context.beginPath();
                     context.moveTo(topLeftCorner.x, topLeftCorner.y);
                     context.lineTo(topRightCorner.x, topRightCorner.y);
@@ -102,6 +117,13 @@
 
                     if (code.data !== lastScannedBarcode) {
                         lastScannedBarcode = code.data;
+
+                        // إضافة الباركود إلى القائمة مع الحفاظ على آخر 5 فقط
+                        scannedBarcodes.push(code.data);
+                        if (scannedBarcodes.length > 5) {
+                            scannedBarcodes.shift();
+                        }
+
                         output.textContent = `تم اكتشاف رمز QR: ${code.data}`;
                         console.log(`Barcode detected: ${code.data}`);
                     }
@@ -111,6 +133,9 @@
             } else {
                 output.textContent = "جاري البحث عن باركود...";
             }
+
+            // رسم الباركودات المكتشفة على الفيديو
+            drawBarcodesOnOverlay();
 
             requestAnimationFrame(scanBarcode);
         }
