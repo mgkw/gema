@@ -147,7 +147,7 @@
             repeatedListDiv.innerHTML = "آخر 5 مكررات:<br>" + repeatedBarcodes.join("<br>");
         }
 
-        function drawBarcodeFrame(location, status, barcodeData) {
+        function drawBarcodeFrame(location, status, barcodeData, remainingTime) {
             const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
             context.beginPath();
             context.moveTo(topLeftCorner.x, topLeftCorner.y);
@@ -158,17 +158,21 @@
             context.lineWidth = 4;
 
             let color = "green"; // افتراضي جديد
+            let text = `✅ ${barcodeData}`; // نص للباركود الجديد
+
             if (status === "warning") {
                 color = "yellow"; // مكرر في فترة قصيرة
+                text = `⚠️ ${barcodeData} (${remainingTime}s)`; // عرض العد التنازلي
             } else if (status === "error") {
                 color = "red"; // مكرر بعد فترة طويلة
+                text = `❌ ${barcodeData}`;
             }
 
             context.strokeStyle = color;
             context.stroke();
             context.fillStyle = color;
             context.font = "bold 24px Arial";
-            context.fillText(status === "new" ? `✅ ${barcodeData}` : (status === "warning" ? `⚠️ ${barcodeData}` : `❌ ${barcodeData}`), topLeftCorner.x + 10, topLeftCorner.y + 30);
+            context.fillText(text, topLeftCorner.x + 10, topLeftCorner.y + 30);
         }
 
         function scanBarcode() {
@@ -192,11 +196,14 @@
 
                 if (status === "new") {
                     updateBarcodeList(barcodeData); // إضافة إلى القائمة الجديدة
+                } else if (status === "warning") {
+                    const remainingTime = Math.max(0, 10 - Math.floor((currentTime - barcodeTimes[barcodeData]) / 1000)); // حساب الوقت المتبقي
+                    drawBarcodeFrame(code.location, status, barcodeData, remainingTime);
                 } else {
                     updateRepeatedList(barcodeData); // إضافة إلى قائمة المكررات
                 }
 
-                drawBarcodeFrame(code.location, status, barcodeData); // رسم الإطار مع الحالة
+                drawBarcodeFrame(code.location, status, barcodeData, 0); // رسم الإطار مع الحالة
             }
 
             requestAnimationFrame(scanBarcode);
