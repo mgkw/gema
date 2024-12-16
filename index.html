@@ -10,8 +10,9 @@
             margin: 0;
             padding: 0;
             text-align: center;
-            background-color: #121212;
+            background-color: #121212; /* تصميم داكن */
             color: #f4f4f9;
+            overflow: hidden;
         }
         h1 {
             margin-top: 10px;
@@ -20,10 +21,11 @@
         #container {
             position: relative;
             display: inline-block;
+            width: 100%;
+            max-width: 400px;
         }
         video {
             width: 100%;
-            max-width: 400px;
             border: 2px solid #333;
             border-radius: 10px;
         }
@@ -41,13 +43,28 @@
             color: #0b84ed;
         }
         .barcode-list {
-            margin-top: 20px;
-            font-size: 16px;
-            text-align: center;
-            background-color: #222;
+            position: absolute;
+            top: 10px; /* أعلى الفيديو */
+            left: 10px;
+            width: 90%;
+            max-width: 400px;
+            font-size: 14px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #fff;
             border-radius: 10px;
             padding: 10px;
-            display: inline-block;
+            text-align: center;
+            box-sizing: border-box;
+            overflow-y: auto;
+            max-height: 120px;
+        }
+        .barcode-item {
+            margin: 5px 0;
+        }
+        .list-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #0b84ed;
         }
     </style>
 </head>
@@ -59,14 +76,27 @@
         <canvas id="overlay"></canvas>
     </div>
 
+    <div class="barcode-list" id="recent-barcodes">
+        <div class="list-title">آخر 5 وصولات تم قراءتها:</div>
+    </div>
+
+    <div class="barcode-list" id="repeated-barcodes">
+        <div class="list-title">آخر 5 مكررات:</div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
     <script>
         const video = document.getElementById("video");
         const overlay = document.getElementById("overlay");
         const context = overlay.getContext("2d");
         const output = document.getElementById("output");
+        const recentBarcodesDiv = document.getElementById("recent-barcodes");
+        const repeatedBarcodesDiv = document.getElementById("repeated-barcodes");
 
         const barcodeDatabase = new Set(); // قاعدة بيانات لتخزين الباركودات المقروءة
+        const recentBarcodes = []; // لتخزين آخر 5 باركودات تم مسحها
+        const repeatedBarcodes = []; // لتخزين آخر 5 مكررات
+
         let lastScanTime = 0; // الوقت لآخر مسح
         let lastBarcode = null; // لتخزين آخر باركود تم مسحه
 
@@ -99,6 +129,18 @@
             context.stroke();
         }
 
+        function updateBarcodeList(barcode, list, listDiv) {
+            // إضافة الباركود إلى القائمة
+            if (list.length >= 5) {
+                list.shift(); // إزالة الأقدم
+            }
+            list.push(barcode);
+
+            // تحديث العرض
+            listDiv.innerHTML = `<div class="list-title">${listDiv.id === 'recent-barcodes' ? 'آخر 5 وصولات تم قراءتها:' : 'آخر 5 مكررات:'}</div>` +
+                list.map(item => `<div class="barcode-item">${item}</div>`).join("");
+        }
+
         function scanBarcode() {
             overlay.width = video.videoWidth;
             overlay.height = video.videoHeight;
@@ -124,9 +166,14 @@
                         barcodeDatabase.add(barcodeData); // حفظ الباركود كجديد
                         output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
                         drawBarcodeFrame(code.location, "green");
+                        updateBarcodeList(barcodeData, recentBarcodes, recentBarcodesDiv); // تحديث قائمة الوصولات
 
                         lastBarcode = barcodeData; // تحديث آخر باركود تم مسحه
                     } else {
+                        if (!repeatedBarcodes.includes(barcodeData)) {
+                            repeatedBarcodes.push(barcodeData); // حفظ الباركود كمكرر
+                            updateBarcodeList(barcodeData, repeatedBarcodes, repeatedBarcodesDiv); // تحديث قائمة المكررات
+                        }
                         output.textContent = `تم اكتشاف باركود مكرر: ${barcodeData}`;
                         drawBarcodeFrame(code.location, "red");
                     }
