@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قراءة الباركود مباشر</title>
+    <title>قراءة الباركود مع النص فوقه</title>
     <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
     <style>
         #videoElement {
@@ -57,15 +57,19 @@
                         const ctx = document.getElementById('barcodeCanvas').getContext('2d');
                         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // مسح الكانفاس من الإطار السابق
                         
-                        const { x, y, width, height } = result.boxes[0]; // أخذ مكان الباركود
+                        // أخذ مكان الباركود
+                        const { x, y, width, height } = result.boxes[0];
                         ctx.beginPath();
                         ctx.rect(x, y, width, height);
                         ctx.lineWidth = 5;
                         ctx.strokeStyle = 'red'; // تحديد الإطار باللون الأحمر
                         ctx.stroke();
 
-                        // طباعة قيمة الباركود
-                        console.log(result.codeResult.code);
+                        // إضافة النص فوق الباركود (على سبيل المثال اسم القارة أو أي نص)
+                        const text = "القارة: " + result.codeResult.code; // هنا يمكنك تعديل النص ليظهر أي قيمة ترغب فيها
+                        ctx.font = "20px Arial";
+                        ctx.fillStyle = "red";
+                        ctx.fillText(text, x, y - 10); // وضع النص فوق الباركود (بمسافة صغيرة من الأعلى)
                     });
                 })
                 .catch(function(err) {
