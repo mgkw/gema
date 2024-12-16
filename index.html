@@ -117,6 +117,7 @@
         const barcodeTimes = {}; // لحفظ وقت آخر مسح لكل باركود
         const countdowns = {}; // لحفظ العد التنازلي لكل باركود
         const barcodeStatus = {}; // لحفظ حالة الباركود (جديد، مكرر، أو قديم)
+        let csvData = []; // مصفوفة لتخزين البيانات التي سيتم إضافتها إلى CSV
 
         async function setupCamera() {
             try {
@@ -219,6 +220,7 @@
 
                 if (status === "new") {
                     updateBarcodeList(barcodeData); // إضافة إلى القائمة الجديدة
+                    csvData.push([barcodeData, "جديد", currentTime]); // إضافة البيانات إلى ملف CSV
                 } else if (status === "warning") {
                     const remainingTime = Math.max(0, 20 - Math.floor((currentTime - barcodeTimes[barcodeData]) / 1000));
                     drawBarcodeFrame(code.location, status, barcodeData, remainingTime);
@@ -226,12 +228,29 @@
                         repeatedBarcodes.push(barcodeData);
                     }
                     updateRepeatedList();
+                    csvData.push([barcodeData, "مكرر", currentTime]); // إضافة البيانات إلى ملف CSV
                 } else if (status === "error") {
                     drawBarcodeFrame(code.location, status, barcodeData, 0);
+                    csvData.push([barcodeData, "قديم", currentTime]); // إضافة البيانات إلى ملف CSV
                 }
             }
 
+            // حفظ البيانات إلى CSV بشكل تلقائي
+            saveCSV();
+
             requestAnimationFrame(scanBarcode);
+        }
+
+        function saveCSV() {
+            const csvContent = "data:text/csv;charset=utf-8," + 
+                "الباركود, الحالة, الوقت\n" + 
+                csvData.map(row => row.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "barcodes.csv");
+            link.click();
         }
 
         setupCamera().then(() => {
