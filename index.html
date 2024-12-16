@@ -1,106 +1,147 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قراءة الباركود مباشرة</title>
-    <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+    <title>ماسح الباركود مع إطار</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
+            text-align: center;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            background-color: #f4f4f9;
         }
-
-        #videoElement {
+        video {
             width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: -1;
+            max-width: 600px;
+            margin-top: 20px;
+            border: 2px solid #333;
         }
-
-        #barcodeCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 2;
-            width: 100%;
-            height: 100%;
+        canvas {
+            display: none;
         }
-
-        #infoText {
-            position: absolute;
-            z-index: 3;
-            color: red;
-            font-size: 20px;
-            font-family: Arial, sans-serif;
+        #output {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+        .result_table_body {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .resultRow {
+            display: flex;
+            align-items: center;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+        .icon {
+            width: 24px;
+            height: 24px;
+        }
+        .scan_text {
+            margin-left: 10px;
+            font-size: 16px;
+            color: #0B63E5;
         }
     </style>
 </head>
 <body>
-    <h2>امسح الباركود مباشرة</h2>
-    <video id="videoElement" autoplay></video>
-    <canvas id="barcodeCanvas"></canvas>
-    <div id="infoText"></div>
+    <h1>ماسح الباركود مع إطار</h1>
+    <p id="output">جاري تهيئة الكاميرا...</p>
+    <video id="video" autoplay></video>
+    <canvas id="canvas"></canvas>
+
+    <tbody id="qrcs_html" class="result_table_body">
+        <tr class="resultRow" id="result_template" style="display: none;">
+            <td>1</td>
+            <td><i data-tooltip-target="tooltip_1" class="icon icon-lowercase icon-lg-3 bg-[#0B63E5]"></i>
+                <div id="tooltip_1" role="tooltip" class="absolute overflow-hidden z-10 invisible inline-block px-3 py-2 text-sm font-medium text-white transition-opacity duration-300 bg-gray-900 rounded-lg shadow-sm opacity-0 tooltip">
+                    Text
+                </div>
+            </td>
+            <td>
+                <div class="scan_text"><div class="line-clamp-2">Text: <span class="barcode_data"></span></div></div>
+            </td>
+        </tr>
+    </tbody>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
 
     <script>
-        // بدء الكاميرا
-        function startCamera() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then(function(stream) {
-                    const videoElement = document.getElementById('videoElement');
-                    videoElement.srcObject = stream;
+        const video = document.getElementById("video");
+        const canvas = document.getElementById("canvas");
+        const context = canvas.getContext("2d");
+        const output = document.getElementById("output");
+        const resultTable = document.getElementById("qrcs_html");
+        const resultTemplate = document.getElementById("result_template");
 
-                    // تكوين Quagga لقراءة الباركود
-                    Quagga.init({
-                        inputStream: {
-                            name: "Live",
-                            type: "LiveStream",
-                            target: videoElement,
-                        },
-                        decoder: {
-                            readers: ["code_128", "ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader", "code_39_reader", "itf_reader"]
-                        }
-                    }, function(err) {
-                        if (err) {
-                            console.error(err);
-                            return;
-                        }
-                        Quagga.start();
-                    });
+        let lastScannedBarcode = null;
 
-                    // معالجة الباركود واكتشافه
-                    Quagga.onDetected(function(result) {
-                        const ctx = document.getElementById('barcodeCanvas').getContext('2d');
-                        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);  // مسح الإطار السابق
-
-                        // أخذ مكان الباركود ورسم مستطيل أحمر حوله
-                        const { x, y, width, height } = result.boxes[0];
-                        ctx.beginPath();
-                        ctx.rect(x, y, width, height);
-                        ctx.lineWidth = 5;
-                        ctx.strokeStyle = 'red';
-                        ctx.stroke();
-
-                        // إضافة النص (اسم المنتج أو أي معلومات عن الباركود)
-                        const infoText = "الباركود: " + result.codeResult.code; // تعديل النص هنا
-                        const infoDiv = document.getElementById('infoText');
-                        infoDiv.textContent = infoText;
-                        infoDiv.style.left = `${x}px`;
-                        infoDiv.style.top = `${y - 30}px`;  // مكان النص فوق الباركود
-                    });
-                })
-                .catch(function(err) {
-                    console.error("Error accessing the camera: ", err);
+        async function setupCamera() {
+            try {
+                output.textContent = "جاري طلب إذن الوصول إلى الكاميرا...";
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
                 });
+                video.srcObject = stream;
+                output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
+            } catch (err) {
+                console.error("فشل إعداد الكاميرا:", err);
+                output.textContent = "فشل في الوصول إلى الكاميرا. من فضلك تأكد من إذن الوصول.";
+            }
         }
 
-        // بدء الكاميرا عند تحميل الصفحة
-        window.onload = function() {
-            startCamera();
-        };
+        function scanBarcode() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (code) {
+                if (code.data !== lastScannedBarcode) {
+                    lastScannedBarcode = code.data;
+                    output.textContent = `تم اكتشاف رمز QR: ${code.data}`;
+                    addResultRow(code.data);
+                }
+
+                context.beginPath();
+                context.lineWidth = 4;
+                context.strokeStyle = "red";
+                const { topLeftCorner, bottomRightCorner } = code.location;
+                context.rect(
+                    topLeftCorner.x,
+                    topLeftCorner.y,
+                    bottomRightCorner.x - topLeftCorner.x,
+                    bottomRightCorner.y - topLeftCorner.y
+                );
+                context.stroke();
+            } else {
+                console.log("لم يتم العثور على باركود.");
+            }
+
+            requestAnimationFrame(scanBarcode);
+        }
+
+        function addResultRow(data) {
+            const newRow = resultTemplate.cloneNode(true);
+            newRow.style.display = "table-row";
+            newRow.querySelector(".barcode_data").textContent = data;
+            resultTable.appendChild(newRow);
+        }
+
+        setupCamera().then(() => {
+            video.addEventListener("play", () => {
+                scanBarcode();
+            });
+        });
     </script>
 </body>
 </html>
