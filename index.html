@@ -3,13 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قراءة الباركود</title>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <title>قراءة الباركود مباشر</title>
+    <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
+    <style>
+        #videoElement {
+            width: 100%;
+            height: auto;
+            border: 1px solid black;
+        }
+        #barcodeCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+        }
+    </style>
 </head>
 <body>
-    <h2>امسح الباركود</h2>
-    <canvas id="barcodeCanvas" width="500" height="500"></canvas>
-    <input type="file" id="fileInput" accept="image/*">
-    <script src="script.js"></script>
+    <h2>امسح الباركود مباشرة</h2>
+    <video id="videoElement"></video>
+    <canvas id="barcodeCanvas" width="640" height="480"></canvas>
+
+    <script>
+        // تكوين Quagga لقراءة الباركود
+        function startCamera() {
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#videoElement'), // الفيديو الذي سيعرض الصورة الحية
+                    constraints: {
+                        facingMode: "environment" // استخدام الكاميرا الخلفية
+                    }
+                },
+                decoder: {
+                    readers: ["code_128", "ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader", "code_39_reader", "itf_reader"] // أنواع الباركود المدعومة
+                }
+            }, function(err) {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+                Quagga.start(); // بدء الكاميرا
+            });
+
+            // معالجة النتائج و رسم الإطار الأحمر حول الباركود
+            Quagga.onDetected(function(result) {
+                const ctx = document.getElementById('barcodeCanvas').getContext('2d');
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // مسح الكانفاس من الإطار السابق
+                
+                const { x, y, width, height } = result.boxes[0]; // أخذ مكان الباركود
+                ctx.beginPath();
+                ctx.rect(x, y, width, height);
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = 'red'; // تحديد الإطار باللون الأحمر
+                ctx.stroke();
+
+                // طباعة قيمة الباركود
+                console.log(result.codeResult.code);
+            });
+        }
+
+        // بدء الكاميرا عند تحميل الصفحة
+        window.onload = function() {
+            startCamera();
+        };
+    </script>
 </body>
 </html>
