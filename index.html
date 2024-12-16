@@ -1,119 +1,73 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماسح الباركود</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f9;
-        }
-        video {
-            width: 100%;
-            max-width: 600px;
-            margin-top: 20px;
-            border: 2px solid #333;
-        }
-        canvas {
-            display: none;
-        }
-        #output {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #333;
-        }
-    </style>
-</head>
-<body>
-    <h1>ماسح الباركود</h1>
-    <p id="output">جاري تهيئة الكاميرا...</p>
-    <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const context = canvas.getContext("2d");
+const output = document.getElementById("output");
 
-    <!-- إضافة مكتبة jsQR -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+let lastScannedBarcode = null;
 
-    <!-- كود JavaScript -->
-    <script>
-        const video = document.getElementById("video");
-        const canvas = document.getElementById("canvas");
-        const context = canvas.getContext("2d");
-        const output = document.getElementById("output");
+// إعداد الكاميرا
+async function setupCamera() {
+    try {
+        output.textContent = "جاري طلب إذن الوصول إلى الكاميرا...";
 
-        let lastScannedBarcode = null; // متغير لتخزين الباركود الذي تم مسحه آخر مرة
-
-        // إعداد الكاميرا
-        async function setupCamera() {
-            try {
-                output.textContent = "جاري طلب إذن الوصول إلى الكاميرا...";
-                
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" } // الكاميرا الخلفية
-                });
-
-                video.srcObject = stream;
-                output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
-            } catch (err) {
-                console.error("فشل إعداد الكاميرا:", err);
-                output.textContent = "فشل في الوصول إلى الكاميرا. من فضلك تأكد من إذن الوصول.";
-            }
-        }
-
-        // قراءة الباركود
-        function scanBarcode() {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-
-            // رسم الفيديو على الكانفاس
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // استخراج بيانات الصورة
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-
-            // تحليل الصورة باستخدام jsQR
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-            if (code) {
-                console.log("تم العثور على باركود:", code.data);  // طباعة بيانات الباركود في وحدة التحكم
-
-                // إذا تم العثور على باركود جديد، تحديث النتيجة فقط إذا كان مختلف
-                if (code.data !== lastScannedBarcode) {
-                    lastScannedBarcode = code.data; // تخزين الباركود الحالي
-                    output.textContent = `تم اكتشاف رمز QR: ${code.data}`; // عرض الباركود
-                }
-
-                // رسم مستطيل حول الباركود
-                context.beginPath();
-                context.lineWidth = 4;
-                context.strokeStyle = "red";
-
-                const { topLeft, topRight, bottomRight, bottomLeft } = code.location;
-
-                // رسم الخطوط الأربعة للمستطيل
-                context.moveTo(topLeft.x, topLeft.y);
-                context.lineTo(topRight.x, topRight.y);
-                context.lineTo(bottomRight.x, bottomRight.y);
-                context.lineTo(bottomLeft.x, bottomLeft.y);
-                context.closePath(); // إغلاق المسار
-                context.stroke();
-            } else {
-                console.log("لم يتم العثور على باركود في هذه الإطار.");
-            }
-
-            // استدعاء الفحص مجددًا
-            requestAnimationFrame(scanBarcode);
-        }
-
-        // بدء تشغيل الكاميرا
-        setupCamera().then(() => {
-            video.addEventListener("play", () => {
-                scanBarcode();
-            });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" } // الكاميرا الخلفية
         });
-    </script>
-</body>
-</html>
+
+        video.srcObject = stream;
+        output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
+    } catch (err) {
+        console.error("فشل إعداد الكاميرا:", err);
+        output.textContent = "فشل في الوصول إلى الكاميرا. من فضلك تأكد من إذن الوصول.";
+    }
+}
+
+// قراءة الباركود
+function scanBarcode() {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // رسم الفيديو على الكانفاس
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // استخراج بيانات الصورة
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    // تحليل الصورة باستخدام jsQR
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+    if (code) {
+        console.log("تم العثور على باركود:", code.data);
+
+        if (code.data !== lastScannedBarcode) {
+            lastScannedBarcode = code.data;
+            output.textContent = `تم اكتشاف رمز QR: ${code.data}`;
+        }
+
+        // رسم مستطيل حول الباركود
+        context.beginPath();
+        context.lineWidth = 4;
+        context.strokeStyle = "red";
+
+        const { topLeft, topRight, bottomRight, bottomLeft } = code.location;
+
+        context.moveTo(topLeft.x, topLeft.y);
+        context.lineTo(topRight.x, topRight.y);
+        context.lineTo(bottomRight.x, bottomRight.y);
+        context.lineTo(bottomLeft.x, bottomLeft.y);
+        context.closePath();
+        context.stroke();
+    } else {
+        console.log("لم يتم العثور على باركود في هذه الإطار.");
+    }
+
+    // استدعاء الفحص مجددًا
+    requestAnimationFrame(scanBarcode);
+}
+
+// بدء تشغيل الكاميرا
+setupCamera().then(() => {
+    video.addEventListener("play", () => {
+        scanBarcode();
+    });
+});
