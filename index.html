@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماسح الباركود مع إطار وعلامة صح</title>
+    <title>ماسح الباركود مع إطار</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,45 +17,39 @@
             max-width: 600px;
             margin-top: 20px;
             border: 2px solid #333;
-            position: relative;
         }
         canvas {
-            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* لتجنب التفاعل مع الطبقة */
+        }
+        #container {
+            position: relative;
+            display: inline-block;
         }
         #output {
             margin-top: 20px;
             font-size: 18px;
             color: #333;
         }
-        .checkmark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 100px;
-            color: green;
-            display: none;
-            z-index: 2;
-        }
     </style>
 </head>
 <body>
-    <h1>ماسح الباركود مع إطار وعلامة صح</h1>
+    <h1>ماسح الباركود مع إطار</h1>
     <p id="output">جاري تهيئة الكاميرا...</p>
-    <div style="position: relative; display: inline-block;">
-        <video id="video" autoplay></video>
-        <span id="checkmark" class="checkmark">✔</span>
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
     </div>
-    <canvas id="canvas"></canvas>
-
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
-
     <script>
         const video = document.getElementById("video");
-        const canvas = document.getElementById("canvas");
-        const context = canvas.getContext("2d");
+        const overlay = document.getElementById("overlay");
+        const context = overlay.getContext("2d");
         const output = document.getElementById("output");
-        const checkmark = document.getElementById("checkmark");
 
         let lastScannedBarcode = null;
 
@@ -63,7 +57,11 @@
             try {
                 output.textContent = "جاري طلب إذن الوصول إلى الكاميرا...";
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1280 }, // تحسين الدقة
+                        height: { ideal: 720 }
+                    }
                 });
                 video.srcObject = stream;
                 output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
@@ -74,46 +72,47 @@
         }
 
         function scanBarcode() {
+            overlay.width = video.videoWidth;
+            overlay.height = video.videoHeight;
+
+            context.clearRect(0, 0, overlay.width, overlay.height);
+            const canvas = document.createElement("canvas");
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const tempContext = canvas.getContext("2d");
 
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            tempContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = tempContext.getImageData(0, 0, canvas.width, canvas.height);
             const code = jsQR(imageData.data, imageData.width, imageData.height);
 
             if (code) {
-                if (code.data !== lastScannedBarcode) {
-                    lastScannedBarcode = code.data;
-                    output.textContent = `تم اكتشاف رمز QR: ${code.data}`;
-                    showCheckmark();
+                const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
+
+                if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
+                    context.beginPath();
+                    context.moveTo(topLeftCorner.x, topLeftCorner.y);
+                    context.lineTo(topRightCorner.x, topRightCorner.y);
+                    context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
+                    context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
+                    context.closePath();
+                    context.lineWidth = 4;
+                    context.strokeStyle = "red";
+                    context.stroke();
+
+                    if (code.data !== lastScannedBarcode) {
+                        lastScannedBarcode = code.data;
+                        output.textContent = `تم اكتشاف رمز QR: ${code.data}`;
+                        console.log(`Barcode detected: ${code.data}`);
+                    }
+                } else {
+                    console.log("إحداثيات الباركود غير صحيحة.");
                 }
-
-                // رسم الإطار حول الباركود
-                context.beginPath();
-                context.lineWidth = 4;
-                context.strokeStyle = "red";
-
-                const topLeft = code.location.topLeftCorner;
-                const topRight = code.location.topRightCorner;
-                const bottomRight = code.location.bottomRightCorner;
-                const bottomLeft = code.location.bottomLeftCorner;
-
-                context.moveTo(topLeft.x, topLeft.y);
-                context.lineTo(topRight.x, topRight.y);
-                context.lineTo(bottomRight.x, bottomRight.y);
-                context.lineTo(bottomLeft.x, bottomLeft.y);
-                context.closePath();
-                context.stroke();
+            } else {
+                output.textContent = "جاري البحث عن باركود...";
             }
 
             requestAnimationFrame(scanBarcode);
-        }
-
-        function showCheckmark() {
-            checkmark.style.display = "block";
-            setTimeout(() => {
-                checkmark.style.display = "none";
-            }, 1000); // اختفاء العلامة بعد ثانية واحدة
         }
 
         setupCamera().then(() => {
