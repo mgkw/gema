@@ -100,8 +100,9 @@
 
         const barcodeDatabase = new Set(); // قاعدة بيانات لتخزين الباركودات
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
-        const repeatedBarcodes = []; // لتخزين آخر 5 مكررات
+        const repeatedBarcodes = new Set(); // لتخزين المكررات (منع التكرار المتعدد)
         let lastScanTime = 0; // الوقت للباركود الأخير
+        let lastBarcodeData = ""; // لتخزين بيانات آخر باركود تم قراءته
 
         async function setupCamera() {
             try {
@@ -118,12 +119,15 @@
         }
 
         function isNewBarcode(barcode) {
-            if (barcodeDatabase.has(barcode)) {
+            const currentTime = new Date().getTime();
+            const timeDifference = currentTime - lastScanTime;
+            
+            // إذا تم مسح نفس الباركود في نفس الثانية، لا يتم اعتباره جديدًا
+            if (barcode === lastBarcodeData && timeDifference < 1000) {
                 return false; // مكرر
-            } else {
-                barcodeDatabase.add(barcode); // إضافة الباركود كجديد
-                return true;
             }
+            lastBarcodeData = barcode; // تخزين الباركود الحالي
+            return true;
         }
 
         function updateBarcodeList(barcode) {
@@ -137,13 +141,15 @@
         }
 
         function updateRepeatedList(barcode) {
-            if (repeatedBarcodes.length >= 5) {
-                repeatedBarcodes.shift(); // إزالة الأقدم
+            if (!repeatedBarcodes.has(barcode)) {
+                if (repeatedBarcodes.size >= 5) {
+                    repeatedBarcodes.delete(repeatedBarcodes.values().next().value); // إزالة الأقدم
+                }
+                repeatedBarcodes.add(barcode);
             }
-            repeatedBarcodes.push(barcode);
 
             repeatedListDiv.innerHTML = "آخر 5 مكررات:<br>" +
-                repeatedBarcodes.join("<br>");
+                Array.from(repeatedBarcodes).join("<br>");
         }
 
         function drawBarcodeFrame(location, isRepeated, barcodeData) {
@@ -187,10 +193,10 @@
                 const timeDifference = currentTime - lastScanTime;
 
                 let isRepeated = false;
-                if (timeDifference > 10000 || isNewBarcode(barcodeData)) { // أكثر من 10 ثوانٍ أو باركود جديد
+                if (isNewBarcode(barcodeData)) { // التحقق من أن الباركود جديد
                     lastScanTime = currentTime;
                     updateBarcodeList(barcodeData);
-                } else {
+                } else if (timeDifference > 10000 && !repeatedBarcodes.has(barcodeData)) { // أكثر من 10 ثوانٍ
                     isRepeated = true;
                     updateRepeatedList(barcodeData); // إضافة للمكررات إذا كان مكررًا
                 }
