@@ -1,210 +1,79 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماسح الباركود - وضع داكن</title>
-    <style>
-        /* النمط العام */
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            background-color: #121212;
-            color: #ffffff;
-        }
+const barcodeDatabase = {}; // قاعدة بيانات لمعرفة الباركودات الجديدة
+const barcodeTimestamps = {}; // قاعدة بيانات لحفظ وقت قراءة كل باركود
+const lastBarcodes = []; // قائمة آخر 5 باركودات
 
-        h1, p {
-            margin: 10px 0;
-            color: #ffffff;
-        }
+function updateBarcodeList(newBarcode, status) {
+    // أضف الباركود إلى القائمة مع الحالة
+    lastBarcodes.unshift({ barcode: newBarcode, status });
+    if (lastBarcodes.length > 5) {
+        lastBarcodes.pop(); // حافظ على آخر 5 باركودات فقط
+    }
 
-        /* الفيديو والقماش */
-        #container {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-            max-width: 600px;
-            margin-top: 20px;
-        }
+    // تحديث العرض في واجهة المستخدم
+    barcodeListElement.innerHTML = "آخر 5 وصولات:<br>" + lastBarcodes
+        .map(item => `<span>${item.status === "✅" ? "جديد" : "مكرر"}:</span> ${item.barcode}`)
+        .join("<br>");
+}
 
-        video {
-            width: 100%;
-            border: 2px solid #333;
-            border-radius: 10px;
-        }
+function scanBarcode() {
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
 
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
+    context.clearRect(0, 0, overlay.width, overlay.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const tempContext = canvas.getContext("2d");
 
-        /* الإخراج */
-        #output {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #00ff88;
-        }
+    tempContext.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        /* النمط المخصص لآخر 5 باركودات */
-        .barcode-list {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 14px;
-            text-align: right;
-            line-height: 1.8;
-            width: calc(100% - 20px);
-            max-width: 580px;
-            overflow: hidden;
-        }
+    const imageData = tempContext.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-        .barcode-list span {
-            color: #00ff88;
-        }
+    if (code) {
+        const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
 
-        /* تحسين العرض للهواتف */
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 20px;
-            }
+        let frameColor = "red"; // افتراضي مكرر
+        let statusIcon = "❌"; // افتراضي خطأ
 
-            p {
-                font-size: 16px;
-            }
+        if (code.data) {
+            const currentTime = Date.now(); // الوقت الحالي بالميلي ثانية
 
-            .barcode-list {
-                font-size: 12px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <h1>ماسح الباركود - وضع داكن</h1>
-    <p id="output">جاري تهيئة الكاميرا...</p>
-    <div id="container">
-        <video id="video" autoplay playsinline></video>
-        <canvas id="overlay"></canvas>
-        <div class="barcode-list" id="barcodeList">
-            آخر 5 وصولات:
-        </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
-    <script>
-        const video = document.getElementById("video");
-        const overlay = document.getElementById("overlay");
-        const context = overlay.getContext("2d");
-        const output = document.getElementById("output");
-        const barcodeListElement = document.getElementById("barcodeList");
-
-        let lastScannedBarcode = null;
-        const barcodeDatabase = {}; // قاعدة بيانات مؤقتة
-        const lastBarcodes = []; // قائمة آخر 5 باركودات
-
-        async function setupCamera() {
-            try {
-                output.textContent = "جاري طلب إذن الوصول إلى الكاميرا...";
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
-                video.srcObject = stream;
-                output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
-            } catch (err) {
-                console.error("فشل إعداد الكاميرا:", err);
-                output.textContent = "فشل في الوصول إلى الكاميرا. من فضلك تأكد من إذن الوصول.";
-            }
-        }
-
-        function updateBarcodeList(newBarcode, status) {
-            // أضف الباركود إلى القائمة مع الحالة
-            lastBarcodes.unshift({ barcode: newBarcode, status });
-            if (lastBarcodes.length > 5) {
-                lastBarcodes.pop(); // حافظ على آخر 5 باركودات فقط
-            }
-
-            // تحديث العرض في واجهة المستخدم
-            barcodeListElement.innerHTML = "آخر 5 وصولات:<br>" + lastBarcodes
-                .map(item => `<span>${item.status === "✅" ? "جديد" : "مكرر"}:</span> ${item.barcode}`)
-                .join("<br>");
-        }
-
-        function scanBarcode() {
-            overlay.width = video.videoWidth;
-            overlay.height = video.videoHeight;
-
-            context.clearRect(0, 0, overlay.width, overlay.height);
-            const canvas = document.createElement("canvas");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const tempContext = canvas.getContext("2d");
-
-            tempContext.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            const imageData = tempContext.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-            if (code) {
-                const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
-
-                let frameColor = "red"; // افتراضي مكرر
-                let statusIcon = "❌"; // افتراضي خطأ
-
-                if (code.data) {
-                    if (!barcodeDatabase[code.data]) {
-                        frameColor = "green";
-                        statusIcon = "✅";
-                        barcodeDatabase[code.data] = true; // حفظ كأنه جديد
-                        output.textContent = `تم اكتشاف باركود جديد: ${code.data}`;
-                        updateBarcodeList(code.data, "✅");
-                    } else {
-                        output.textContent = `تم اكتشاف باركود مكرر: ${code.data}`;
-                        updateBarcodeList(code.data, "❌");
-                    }
-
-                    if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
-                        context.beginPath();
-                        context.moveTo(topLeftCorner.x, topLeftCorner.y);
-                        context.lineTo(topRightCorner.x, topRightCorner.y);
-                        context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
-                        context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
-                        context.closePath();
-                        context.lineWidth = 4;
-                        context.strokeStyle = frameColor;
-                        context.stroke();
-
-                        const centerX = (topLeftCorner.x + bottomRightCorner.x) / 2;
-                        const centerY = (topLeftCorner.y + bottomRightCorner.y) / 2;
-                        context.font = "20px Arial";
-                        context.fillStyle = frameColor;
-                        context.textAlign = "center";
-                        context.fillText(statusIcon, centerX, centerY);
-                    }
-                }
+            // تحقق إذا كان الباركود موجودًا وتمت قراءته مؤخرًا
+            if (!barcodeDatabase[code.data] || (currentTime - barcodeTimestamps[code.data]) > 1000) {
+                frameColor = "green";
+                statusIcon = "✅";
+                barcodeDatabase[code.data] = true; // اعتبره جديدًا
+                barcodeTimestamps[code.data] = currentTime; // حدث زمن القراءة
+                output.textContent = `تم اكتشاف باركود جديد: ${code.data}`;
+                updateBarcodeList(code.data, "✅");
             } else {
-                output.textContent = "جاري البحث عن باركود...";
+                output.textContent = `تم اكتشاف باركود مكرر: ${code.data}`;
+                updateBarcodeList(code.data, "❌");
             }
 
-            requestAnimationFrame(scanBarcode);
-        }
+            if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
+                context.beginPath();
+                context.moveTo(topLeftCorner.x, topLeftCorner.y);
+                context.lineTo(topRightCorner.x, topRightCorner.y);
+                context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
+                context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
+                context.closePath();
+                context.lineWidth = 4;
+                context.strokeStyle = frameColor;
+                context.stroke();
 
-        setupCamera().then(() => {
-            video.addEventListener("play", () => {
-                scanBarcode();
-            });
-        });
-    </script>
-</body>
-</html>
+                const centerX = (topLeftCorner.x + bottomRightCorner.x) / 2;
+                const centerY = (topLeftCorner.y + bottomRightCorner.y) / 2;
+                context.font = "20px Arial";
+                context.fillStyle = frameColor;
+                context.textAlign = "center";
+                context.fillText(statusIcon, centerX, centerY);
+            }
+        }
+    } else {
+        output.textContent = "جاري البحث عن باركود...";
+    }
+
+    requestAnimationFrame(scanBarcode);
+}
