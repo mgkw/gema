@@ -70,9 +70,8 @@
         const output = document.getElementById("output");
         const barcodeListDiv = document.getElementById("barcode-list");
 
-        const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع وقت القراءة
+        const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع الوقت
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
-        const barcodeTimeout = 10 * 1000; // مدة اعتبار الباركود مكرر (10 ثوانٍ)
 
         async function setupCamera() {
             try {
@@ -116,14 +115,18 @@
             context.fillText(icon, topLeftCorner.x + 10, topLeftCorner.y + 30);
         }
 
-        function isBarcodeDuplicate(barcodeData, currentTime) {
+        function isBarcodeDuplicate(barcodeData) {
+            const currentTime = new Date().getTime();
             if (barcodeDatabase.has(barcodeData)) {
                 const lastScanTime = barcodeDatabase.get(barcodeData);
-                if (currentTime - lastScanTime > barcodeTimeout) {
-                    return true; // الباركود مكرر
+                const timeDifference = currentTime - lastScanTime;
+
+                // إذا مر أقل من 10 ثوانٍ، يعتبر الباركود مكررًا
+                if (timeDifference < 10000) {
+                    return true;
                 }
             }
-            return false; // الباركود جديد
+            return false;
         }
 
         function scanBarcode() {
@@ -143,18 +146,18 @@
 
             if (code) {
                 const barcodeData = code.data;
-                const currentTime = new Date().getTime();
 
-                if (isBarcodeDuplicate(barcodeData, currentTime)) {
-                    // إذا كانت الفترة بين القراءتين أكثر من 10 ثوانٍ، يعتبر الباركود مكررًا
+                if (isBarcodeDuplicate(barcodeData)) {
+                    // إذا كان الباركود مكررًا
                     output.textContent = `تم اكتشاف باركود مكرر: ${barcodeData}`;
                     drawBarcodeFrame(code.location, "red", "❌");
                 } else {
-                    // إذا كانت الفترة بين القراءتين أقل من 10 ثوانٍ، يعتبر الباركود جديدًا
+                    // إذا كان الباركود جديدًا
                     output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
                     drawBarcodeFrame(code.location, "green", "✅");
 
-                    // تحديث قاعدة البيانات وإضافة الوقت
+                    // إضافة الباركود إلى قاعدة البيانات مع الوقت الحالي
+                    const currentTime = new Date().getTime();
                     barcodeDatabase.set(barcodeData, currentTime);
 
                     // تحديث قائمة الباركودات
