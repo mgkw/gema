@@ -121,8 +121,8 @@
                 const lastScanTime = barcodeDatabase.get(barcodeData);
                 const timeDifference = currentTime - lastScanTime;
 
-                // إذا مر أقل من 10 ثوانٍ، يعتبر الباركود مكررًا
-                if (timeDifference < 10000) {
+                // إذا مر أكثر من 10 ثوانٍ، يعتبر الباركود مكررًا
+                if (timeDifference > 10000) {
                     return true;
                 }
             }
