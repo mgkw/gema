@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>جرد الباركود مخزن</title>
+    <title>ماسح الباركود مع إطار</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -52,8 +52,7 @@
         const output = document.getElementById("output");
 
         let lastScannedBarcode = null;
-        const scannedBarcodes = []; // تخزين آخر 5 باركودات للعرض
-        const barcodeDatabase = {}; // قاعدة بيانات مؤقتة لحفظ الباركودات
+        const barcodeDatabase = {}; // قاعدة بيانات مؤقتة كبديل عن SQLite في الجانب الأمامي.
 
         async function setupCamera() {
             try {
@@ -61,7 +60,7 @@
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: "environment",
-                        width: { ideal: 1280 }, // تحسين الدقة
+                        width: { ideal: 1280 },
                         height: { ideal: 720 }
                     }
                 });
@@ -78,11 +77,12 @@
             context.fillStyle = "white";
             context.textAlign = "left";
 
-            // رسم آخر 5 باركودات
+            // عرض الباركودات المكتشفة
             const padding = 10;
             const lineHeight = 20;
-            scannedBarcodes.slice(-5).forEach((barcode, index) => {
-                context.fillText(`باركود ${index + 1}: ${barcode}`, padding, padding + lineHeight * (index + 1));
+            Object.keys(barcodeDatabase).slice(-5).forEach((barcode, index) => {
+                const status = barcodeDatabase[barcode] ? "✅" : "❌";
+                context.fillText(`${status} باركود ${index + 1}: ${barcode}`, padding, padding + lineHeight * (index + 1));
             });
         }
 
@@ -104,44 +104,46 @@
             if (code) {
                 const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
 
-                let frameColor = "red"; // اللون الافتراضي إذا كان مكررًا
+                let frameColor = "red"; // افتراضي مكرر
+                let statusIcon = "❌"; // افتراضي خطأ
 
                 if (code.data) {
-                    // التحقق مما إذا كان الباركود موجودًا مسبقًا
+                    // تحقق مما إذا كان الباركود جديدًا
                     if (!barcodeDatabase[code.data]) {
-                        // إذا كان جديدًا
                         frameColor = "green";
-                        barcodeDatabase[code.data] = true; // حفظ الباركود في قاعدة البيانات
-                        scannedBarcodes.push(code.data); // إضافة إلى قائمة العرض
+                        statusIcon = "✅";
+                        barcodeDatabase[code.data] = true; // حفظ كأنه جديد
                         output.textContent = `تم اكتشاف باركود جديد: ${code.data}`;
                     } else {
-                        // إذا كان مكررًا
                         output.textContent = `تم اكتشاف باركود مكرر: ${code.data}`;
                     }
 
-                    // الإبقاء على قائمة آخر 5 باركودات فقط
-                    if (scannedBarcodes.length > 5) {
-                        scannedBarcodes.shift();
-                    }
-                }
+                    // رسم الإطار حول الباركود
+                    if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
+                        context.beginPath();
+                        context.moveTo(topLeftCorner.x, topLeftCorner.y);
+                        context.lineTo(topRightCorner.x, topRightCorner.y);
+                        context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
+                        context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
+                        context.closePath();
+                        context.lineWidth = 4;
+                        context.strokeStyle = frameColor;
+                        context.stroke();
 
-                // رسم الإطار حول الباركود
-                if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
-                    context.beginPath();
-                    context.moveTo(topLeftCorner.x, topLeftCorner.y);
-                    context.lineTo(topRightCorner.x, topRightCorner.y);
-                    context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
-                    context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
-                    context.closePath();
-                    context.lineWidth = 4;
-                    context.strokeStyle = frameColor; // استخدام اللون بناءً على الحالة
-                    context.stroke();
+                        // رسم الأيقونة في منتصف الإطار
+                        const centerX = (topLeftCorner.x + bottomRightCorner.x) / 2;
+                        const centerY = (topLeftCorner.y + bottomRightCorner.y) / 2;
+                        context.font = "20px Arial";
+                        context.fillStyle = frameColor;
+                        context.textAlign = "center";
+                        context.fillText(statusIcon, centerX, centerY);
+                    }
                 }
             } else {
                 output.textContent = "جاري البحث عن باركود...";
             }
 
-            // رسم الباركودات المكتشفة على الفيديو
+            // عرض آخر الباركودات
             drawBarcodesOnOverlay();
 
             requestAnimationFrame(scanBarcode);
