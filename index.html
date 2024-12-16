@@ -73,7 +73,6 @@
         const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع الوقت
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
         let lastScanTime = 0; // الوقت للباركود الأخير
-        let frameTimer = null; // لحفظ توقيت عرض الإطار
         let currentBarcode = null; // الباركود الحالي الذي يتم مسحه
 
         const scanCooldown = 1000; // فترة السكون بين كل قراءة
@@ -145,30 +144,22 @@
                 if (currentTime - lastScanTime > scanCooldown) {
                     lastScanTime = currentTime;
 
-                    // تحقق من الباركودات المكررة (نفس القيمة بعد مرور الوقت)
-                    if (barcodeDatabase.has(barcodeData)) {
-                        const lastTime = barcodeDatabase.get(barcodeData);
-                        if (currentTime - lastTime < barcodeTimeout) {
-                            output.textContent = `تم اكتشاف الباركود نفسه مجددًا: ${barcodeData}`;
-                            return; // تجاهل القراءة المتكررة لنفس الباركود خلال 30 ثانية
-                        }
-                    }
-
-                    // إذا كانت البيانات مختلفة، يتم معالجتها كباركود جديد
-                    output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
-                    drawBarcodeFrame(code.location, "green", "✅");
-
-                    // تحديث قائمة الباركودات
-                    updateBarcodeList(barcodeData, "✅");
-
-                    // تخزين الباركود مع الوقت
-                    barcodeDatabase.set(barcodeData, currentTime);
-
-                    // إذا كان الباركود مختلفًا عن الحالي، امسح الإطار القديم
+                    // إذا كان الباركود مختلفًا عن الباركود الحالي
                     if (barcodeData !== currentBarcode) {
+                        output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
+                        drawBarcodeFrame(code.location, "green", "✅");
+
+                        // تحديث قائمة الباركودات
+                        updateBarcodeList(barcodeData, "✅");
+
+                        // تخزين الباركود مع الوقت
+                        barcodeDatabase.set(barcodeData, currentTime);
+
+                        // حفظ الباركود الحالي
                         currentBarcode = barcodeData;
-                        if (frameTimer) clearTimeout(frameTimer);
-                        frameTimer = setTimeout(() => {
+
+                        // مسح الإطار بعد فترة
+                        setTimeout(() => {
                             context.clearRect(0, 0, overlay.width, overlay.height); // مسح الإطار بعد مرور الوقت
                         }, frameTimeout);
                     }
