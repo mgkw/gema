@@ -90,22 +90,16 @@
                 context.beginPath();
                 context.lineWidth = 4;
                 context.strokeStyle = "red";
-                const { topLeftCorner, bottomRightCorner } = code.location;
 
-                // طباعة الإحداثيات في وحدة التحكم للتحقق
-                console.log("إحداثيات الباركود:", topLeftCorner, bottomRightCorner);
+                const { topLeft, topRight, bottomRight, bottomLeft } = code.location;
 
-                // رسم مستطيل حول الباركود
-                context.rect(
-                    topLeftCorner.x,
-                    topLeftCorner.y,
-                    bottomRightCorner.x - topLeftCorner.x,
-                    bottomRightCorner.y - topLeftCorner.y
-                );
+                // رسم الخطوط الأربعة للمستطيل
+                context.moveTo(topLeft.x, topLeft.y);
+                context.lineTo(topRight.x, topRight.y);
+                context.lineTo(bottomRight.x, bottomRight.y);
+                context.lineTo(bottomLeft.x, bottomLeft.y);
+                context.closePath(); // إغلاق المسار
                 context.stroke();
-
-                // عرض رسالة بعد رسم المربع
-                output.textContent += " - تم رسم مربع حول الباركود."; 
             } else {
                 console.log("لم يتم العثور على باركود في هذه الإطار.");
             }
