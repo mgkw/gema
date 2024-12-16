@@ -70,6 +70,20 @@
         .status-icon.error {
             color: red;
         }
+        .countdown-text {
+            font-size: 30px;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px;
+            border-radius: 5px;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+        }
     </style>
 </head>
 <body>
@@ -101,6 +115,7 @@
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
         const repeatedBarcodes = []; // لتخزين آخر 5 مكررات
         const barcodeTimes = {}; // لحفظ وقت آخر مسح لكل باركود
+        const countdowns = {}; // لحفظ العد التنازلي لكل باركود
 
         async function setupCamera() {
             try {
@@ -120,13 +135,17 @@
             if (barcodeDatabase.has(barcode)) {
                 const lastTime = barcodeTimes[barcode];
                 const timeDifference = currentTime - lastTime;
-                if (timeDifference < 10000) { // إذا تم مسحه خلال 10 ثواني
-                    return "warning"; // مكرر في فترة قصيرة
+                if (timeDifference < 20000) { // إذا تم مسحه خلال 20 ثانية
+                    if (!repeatedBarcodes.includes(barcode)) {
+                        repeatedBarcodes.push(barcode);
+                    }
+                    return "warning"; // مكرر في فترة 20 ثانية
                 }
-                return "error"; // مكرر بعد فترة أكثر من 10 ثواني
+                return "error"; // مكرر بعد فترة 20 ثانية
             } else {
                 barcodeDatabase.add(barcode); // إضافة الباركود الجديد
                 barcodeTimes[barcode] = currentTime; // حفظ الوقت
+                countdowns[barcode] = 20; // العد التنازلي يبدأ من 20 ثانية
                 return "new"; // باركود جديد
             }
         }
@@ -139,11 +158,7 @@
             barcodeListDiv.innerHTML = "آخر 5 وصولات تم قرائتها:<br>" + lastBarcodes.join("<br>");
         }
 
-        function updateRepeatedList(barcode) {
-            if (repeatedBarcodes.length >= 5) {
-                repeatedBarcodes.shift(); // إزالة أقدم مكرر
-            }
-            repeatedBarcodes.push(barcode);
+        function updateRepeatedList() {
             repeatedListDiv.innerHTML = "آخر 5 مكررات:<br>" + repeatedBarcodes.join("<br>");
         }
 
@@ -157,14 +172,14 @@
             context.closePath();
             context.lineWidth = 4;
 
-            let color = "green"; // افتراضي جديد
-            let text = `✅ ${barcodeData}`; // نص للباركود الجديد
+            let color = "green";
+            let text = `✅ ${barcodeData}`;
 
             if (status === "warning") {
-                color = "yellow"; // مكرر في فترة قصيرة
+                color = "yellow";
                 text = `⚠️ ${barcodeData} (${remainingTime}s)`; // عرض العد التنازلي
             } else if (status === "error") {
-                color = "red"; // مكرر بعد فترة طويلة
+                color = "red";
                 text = `❌ ${barcodeData}`;
             }
 
@@ -173,6 +188,15 @@
             context.fillStyle = color;
             context.font = "bold 24px Arial";
             context.fillText(text, topLeftCorner.x + 10, topLeftCorner.y + 30);
+
+            // عرض العد التنازلي داخل الإطار
+            if (status === "warning") {
+                const countdownText = `${remainingTime}s`;
+                const countdownDiv = document.createElement('div');
+                countdownDiv.className = 'countdown-text';
+                countdownDiv.textContent = countdownText;
+                overlay.appendChild(countdownDiv);
+            }
         }
 
         function scanBarcode() {
@@ -197,21 +221,17 @@
                 if (status === "new") {
                     updateBarcodeList(barcodeData); // إضافة إلى القائمة الجديدة
                 } else if (status === "warning") {
-                    const remainingTime = Math.max(0, 10 - Math.floor((currentTime - barcodeTimes[barcodeData]) / 1000)); // حساب الوقت المتبقي
+                    const remainingTime = Math.max(0, 20 - Math.floor((currentTime - barcodeTimes[barcodeData]) / 1000));
                     drawBarcodeFrame(code.location, status, barcodeData, remainingTime);
+                    countdowns[barcodeData] = remainingTime; // تحديث العد التنازلي
                 } else {
-                    updateRepeatedList(barcodeData); // إضافة إلى قائمة المكررات
+                    updateRepeatedList(); // تحديث قائمة المكررات
                 }
-
-                drawBarcodeFrame(code.location, status, barcodeData, 0); // رسم الإطار مع الحالة
             }
-
-            requestAnimationFrame(scanBarcode);
         }
 
-        setupCamera().then(() => {
-            video.addEventListener("play", scanBarcode);
-        });
+        setupCamera();
+        setInterval(scanBarcode, 100); // مسح الباركود كل 100 ملي ثانية
     </script>
 </body>
 </html>
