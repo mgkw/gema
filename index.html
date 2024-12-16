@@ -70,17 +70,15 @@
         const output = document.getElementById("output");
         const barcodeListDiv = document.getElementById("barcode-list");
 
-        const barcodeDatabase = new Set(); // قاعدة بيانات لتخزين الباركودات
+        const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع الوقت
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
         let lastScanTime = 0; // الوقت للباركود الأخير
-        let lastDetectedBarcode = ""; // لتخزين آخر باركود تم اكتشافه
-        let lastDetectedLocation = null; // لتخزين آخر موقع للباركود
+        let frameTimer = null; // لحفظ توقيت عرض الإطار
+        let currentBarcode = null; // الباركود الحالي الذي يتم مسحه
 
         const scanCooldown = 1000; // فترة السكون بين كل قراءة
-        const locationThreshold = 20; // الحد الأدنى للتغيير في الإحداثيات
+        const barcodeTimeout = 30 * 1000; // مدة اعتبار الباركود مكرر (30 ثانية)
         const frameTimeout = 3000; // فترة بقاء الإطار مرئيًا (بالملي ثانية)
-
-        let frameTimer = null; // لحفظ توقيت عرض الإطار
 
         async function setupCamera() {
             try {
@@ -93,15 +91,6 @@
             } catch (err) {
                 console.error("فشل إعداد الكاميرا:", err);
                 output.textContent = "فشل في الوصول إلى الكاميرا. تأكد من الأذونات.";
-            }
-        }
-
-        function isNewBarcode(barcode) {
-            if (barcodeDatabase.has(barcode)) {
-                return false; // مكرر
-            } else {
-                barcodeDatabase.add(barcode); // إضافة الباركود كجديد
-                return true;
             }
         }
 
@@ -156,33 +145,28 @@
                 if (currentTime - lastScanTime > scanCooldown) {
                     lastScanTime = currentTime;
 
-                    // تحقق مما إذا كان الباركود هو نفسه أو تم اكتشافه في نفس الموقع تقريبًا
-                    if (barcodeData === lastDetectedBarcode) {
-                        const location = code.location;
-                        const distance = Math.sqrt(
-                            Math.pow(location.topLeftCorner.x - lastDetectedLocation.x, 2) +
-                            Math.pow(location.topLeftCorner.y - lastDetectedLocation.y, 2)
-                        );
-
-                        // إذا كانت المسافة بين الموقعين أقل من threshold، نعتبره مكرر
-                        if (distance < locationThreshold) {
-                            console.log("الباركود مكرر: تم قراءته في نفس المكان");
-                            return;
+                    // تحقق من الباركودات المكررة (نفس القيمة بعد مرور الوقت)
+                    if (barcodeDatabase.has(barcodeData)) {
+                        const lastTime = barcodeDatabase.get(barcodeData);
+                        if (currentTime - lastTime < barcodeTimeout) {
+                            output.textContent = `تم اكتشاف الباركود نفسه مجددًا: ${barcodeData}`;
+                            return; // تجاهل القراءة المتكررة لنفس الباركود خلال 30 ثانية
                         }
                     }
 
-                    // إذا كانت البيانات مختلفة ولكن الموقع نفسه، يُعتبر باركود جديد
-                    if (barcodeData !== lastDetectedBarcode) {
-                        output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
-                        drawBarcodeFrame(code.location, "green", "✅");
+                    // إذا كانت البيانات مختلفة، يتم معالجتها كباركود جديد
+                    output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
+                    drawBarcodeFrame(code.location, "green", "✅");
 
-                        // تحديث قائمة الباركودات
-                        updateBarcodeList(barcodeData, "✅");
+                    // تحديث قائمة الباركودات
+                    updateBarcodeList(barcodeData, "✅");
 
-                        lastDetectedBarcode = barcodeData;
-                        lastDetectedLocation = code.location;
+                    // تخزين الباركود مع الوقت
+                    barcodeDatabase.set(barcodeData, currentTime);
 
-                        // إعادة ضبط المؤقت لإبقاء الإطار مرئيًا لفترة
+                    // إذا كان الباركود مختلفًا عن الحالي، امسح الإطار القديم
+                    if (barcodeData !== currentBarcode) {
+                        currentBarcode = barcodeData;
                         if (frameTimer) clearTimeout(frameTimer);
                         frameTimer = setTimeout(() => {
                             context.clearRect(0, 0, overlay.width, overlay.height); // مسح الإطار بعد مرور الوقت
