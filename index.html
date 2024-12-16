@@ -70,14 +70,9 @@
         const output = document.getElementById("output");
         const barcodeListDiv = document.getElementById("barcode-list");
 
-        const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع الوقت
+        const barcodeDatabase = new Map(); // قاعدة بيانات لتخزين الباركودات مع وقت القراءة
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
-        let lastScanTime = 0; // الوقت للباركود الأخير
-        let currentBarcode = null; // الباركود الحالي الذي يتم مسحه
-
-        const scanCooldown = 1000; // فترة السكون بين كل قراءة
-        const barcodeTimeout = 30 * 1000; // مدة اعتبار الباركود مكرر (30 ثانية)
-        const frameTimeout = 3000; // فترة بقاء الإطار مرئيًا (بالملي ثانية)
+        const barcodeTimeout = 10 * 1000; // مدة اعتبار الباركود مكرر (10 ثوانٍ)
 
         async function setupCamera() {
             try {
@@ -121,6 +116,16 @@
             context.fillText(icon, topLeftCorner.x + 10, topLeftCorner.y + 30);
         }
 
+        function isBarcodeDuplicate(barcodeData, currentTime) {
+            if (barcodeDatabase.has(barcodeData)) {
+                const lastScanTime = barcodeDatabase.get(barcodeData);
+                if (currentTime - lastScanTime > barcodeTimeout) {
+                    return true; // الباركود مكرر
+                }
+            }
+            return false; // الباركود جديد
+        }
+
         function scanBarcode() {
             overlay.width = video.videoWidth;
             overlay.height = video.videoHeight;
@@ -140,29 +145,25 @@
                 const barcodeData = code.data;
                 const currentTime = new Date().getTime();
 
-                // تحقق من مرور الوقت الكافي (مرة واحدة في الثانية تقريبًا)
-                if (currentTime - lastScanTime > scanCooldown) {
-                    lastScanTime = currentTime;
+                if (isBarcodeDuplicate(barcodeData, currentTime)) {
+                    // إذا كانت الفترة بين القراءتين أكثر من 10 ثوانٍ، يعتبر الباركود مكررًا
+                    output.textContent = `تم اكتشاف باركود مكرر: ${barcodeData}`;
+                    drawBarcodeFrame(code.location, "red", "❌");
+                } else {
+                    // إذا كانت الفترة بين القراءتين أقل من 10 ثوانٍ، يعتبر الباركود جديدًا
+                    output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
+                    drawBarcodeFrame(code.location, "green", "✅");
 
-                    // إذا كان الباركود مختلفًا عن الباركود الحالي
-                    if (barcodeData !== currentBarcode) {
-                        output.textContent = `تم اكتشاف باركود جديد: ${barcodeData}`;
-                        drawBarcodeFrame(code.location, "green", "✅");
+                    // تحديث قاعدة البيانات وإضافة الوقت
+                    barcodeDatabase.set(barcodeData, currentTime);
 
-                        // تحديث قائمة الباركودات
-                        updateBarcodeList(barcodeData, "✅");
+                    // تحديث قائمة الباركودات
+                    updateBarcodeList(barcodeData, "✅");
 
-                        // تخزين الباركود مع الوقت
-                        barcodeDatabase.set(barcodeData, currentTime);
-
-                        // حفظ الباركود الحالي
-                        currentBarcode = barcodeData;
-
-                        // مسح الإطار بعد فترة
-                        setTimeout(() => {
-                            context.clearRect(0, 0, overlay.width, overlay.height); // مسح الإطار بعد مرور الوقت
-                        }, frameTimeout);
-                    }
+                    // مسح الإطار بعد فترة
+                    setTimeout(() => {
+                        context.clearRect(0, 0, overlay.width, overlay.height);
+                    }, 3000);
                 }
             }
 
