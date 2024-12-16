@@ -116,6 +116,7 @@
         const repeatedBarcodes = []; // لتخزين آخر 5 مكررات
         const barcodeTimes = {}; // لحفظ وقت آخر مسح لكل باركود
         const countdowns = {}; // لحفظ العد التنازلي لكل باركود
+        const barcodeStatus = {}; // لحفظ حالة الباركود (جديد، مكرر، أو قديم)
 
         async function setupCamera() {
             try {
@@ -136,16 +137,14 @@
                 const lastTime = barcodeTimes[barcode];
                 const timeDifference = currentTime - lastTime;
                 if (timeDifference < 20000) { // إذا تم مسحه خلال 20 ثانية
-                    if (!repeatedBarcodes.includes(barcode)) {
-                        repeatedBarcodes.push(barcode);
-                    }
                     return "warning"; // مكرر في فترة 20 ثانية
                 }
                 return "error"; // مكرر بعد فترة 20 ثانية
             } else {
                 barcodeDatabase.add(barcode); // إضافة الباركود الجديد
                 barcodeTimes[barcode] = currentTime; // حفظ الوقت
-                countdowns[barcode] = 20; // العد التنازلي يبدأ من 20 ثانية
+                countdowns[barcode] = 5; // العد التنازلي يبدأ من 5 ثواني
+                barcodeStatus[barcode] = "new"; // الحالة هي جديد
                 return "new"; // باركود جديد
             }
         }
@@ -223,15 +222,20 @@
                 } else if (status === "warning") {
                     const remainingTime = Math.max(0, 20 - Math.floor((currentTime - barcodeTimes[barcodeData]) / 1000));
                     drawBarcodeFrame(code.location, status, barcodeData, remainingTime);
-                    countdowns[barcodeData] = remainingTime; // تحديث العد التنازلي
-                } else {
-                    updateRepeatedList(); // تحديث قائمة المكررات
+                    if (!repeatedBarcodes.includes(barcodeData)) {
+                        repeatedBarcodes.push(barcodeData);
+                    }
+                } else if (status === "error") {
+                    drawBarcodeFrame(code.location, status, barcodeData, 0);
                 }
             }
+
+            requestAnimationFrame(scanBarcode);
         }
 
-        setupCamera();
-        setInterval(scanBarcode, 100); // مسح الباركود كل 100 ملي ثانية
+        setupCamera().then(() => {
+            video.addEventListener("play", scanBarcode);
+        });
     </script>
 </body>
 </html>
