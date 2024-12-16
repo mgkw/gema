@@ -1,41 +1,15 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماسح الباركود</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f9;
-        }
-        video {
-            width: 100%;
-            max-width: 600px;
-            margin-top: 20px;
-            border: 2px solid #333;
-        }
-        canvas {
-            display: none;
-        }
-        #output {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #333;
-        }
-    </style>
+    <title>قراءة الباركود</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
 </head>
 <body>
-    <h1>ماسح الباركود</h1>
-    <p id="output">جاري تهيئة الكاميرا...</p>
-    <video id="video" autoplay></video>
-    <canvas id="canvas"></canvas>
-
-    <!-- إضافة مكتبة jsQR -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <h2>امسح الباركود</h2>
+    <canvas id="barcodeCanvas" width="500" height="500"></canvas>
+    <input type="file" id="fileInput" accept="image/*">
     <script src="script.js"></script>
 </body>
 </html>
