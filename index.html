@@ -3,34 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>قراءة الباركود مع النصل مم  فوقه</title>
+    <title>قراءة الباركود مباشرة</title>
     <script src="https://unpkg.com/quagga@0.12.1/dist/quagga.min.js"></script>
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
         #videoElement {
             width: 100%;
-            height: auto;
-            border: 1px solid black;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: -1;
         }
+
         #barcodeCanvas {
             position: absolute;
             top: 0;
             left: 0;
             z-index: 2;
+            width: 100%;
+            height: 100%;
+        }
+
+        #infoText {
+            position: absolute;
+            z-index: 3;
+            color: red;
+            font-size: 20px;
+            font-family: Arial, sans-serif;
         }
     </style>
 </head>
 <body>
     <h2>امسح الباركود مباشرة</h2>
     <video id="videoElement" autoplay></video>
-    <canvas id="barcodeCanvas" width="640" height="480"></canvas>
+    <canvas id="barcodeCanvas"></canvas>
+    <div id="infoText"></div>
 
     <script>
         // بدء الكاميرا
         function startCamera() {
-            // طلب الوصول إلى الكاميرا
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
                 .then(function(stream) {
-                    // ربط الفيديو مع مصدر الكاميرا
                     const videoElement = document.getElementById('videoElement');
                     videoElement.srcObject = stream;
 
@@ -39,37 +58,38 @@
                         inputStream: {
                             name: "Live",
                             type: "LiveStream",
-                            target: videoElement, // الفيديو الذي سيعرض الصورة الحية
+                            target: videoElement,
                         },
                         decoder: {
-                            readers: ["code_128", "ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader", "code_39_reader", "itf_reader"] // أنواع الباركود المدعومة
+                            readers: ["code_128", "ean_reader", "ean_8_reader", "upc_reader", "upc_e_reader", "code_39_reader", "itf_reader"]
                         }
                     }, function(err) {
                         if (err) {
-                            console.log(err);
+                            console.error(err);
                             return;
                         }
-                        Quagga.start(); // بدء قراءة الباركود
+                        Quagga.start();
                     });
 
-                    // معالجة النتائج و رسم الإطار الأحمر حول الباركود
+                    // معالجة الباركود واكتشافه
                     Quagga.onDetected(function(result) {
                         const ctx = document.getElementById('barcodeCanvas').getContext('2d');
-                        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // مسح الكانفاس من الإطار السابق
-                        
-                        // أخذ مكان الباركود
+                        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);  // مسح الإطار السابق
+
+                        // أخذ مكان الباركود ورسم مستطيل أحمر حوله
                         const { x, y, width, height } = result.boxes[0];
                         ctx.beginPath();
                         ctx.rect(x, y, width, height);
                         ctx.lineWidth = 5;
-                        ctx.strokeStyle = 'red'; // تحديد الإطار باللون الأحمر
+                        ctx.strokeStyle = 'red';
                         ctx.stroke();
 
-                        // إضافة النص فوق الباركود (على سبيل المثال اسم القارة أو أي نص)
-                        const text = "القارة: " + result.codeResult.code; // هنا يمكنك تعديل النص ليظهر أي قيمة ترغب فيها
-                        ctx.font = "20px Arial";
-                        ctx.fillStyle = "red";
-                        ctx.fillText(text, x, y - 10); // وضع النص فوق الباركود (بمسافة صغيرة من الأعلى)
+                        // إضافة النص (اسم المنتج أو أي معلومات عن الباركود)
+                        const infoText = "الباركود: " + result.codeResult.code; // تعديل النص هنا
+                        const infoDiv = document.getElementById('infoText');
+                        infoDiv.textContent = infoText;
+                        infoDiv.style.left = `${x}px`;
+                        infoDiv.style.top = `${y - 30}px`;  // مكان النص فوق الباركود
                     });
                 })
                 .catch(function(err) {
