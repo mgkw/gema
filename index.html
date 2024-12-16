@@ -3,46 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماسح الباركود مع إطار</title>
+    <title>ماسح الباركود - وضع داكن</title>
     <style>
+        /* النمط العام */
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             margin: 0;
             padding: 0;
-            background-color: #f4f4f9;
+            background-color: #121212;
+            color: #ffffff;
         }
-        video {
+
+        h1, p {
+            margin: 10px 0;
+            color: #ffffff;
+        }
+
+        /* الفيديو والقماش */
+        #container {
+            position: relative;
+            display: inline-block;
             width: 100%;
             max-width: 600px;
             margin-top: 20px;
-            border: 2px solid #333;
         }
+
+        video {
+            width: 100%;
+            border: 2px solid #333;
+            border-radius: 10px;
+        }
+
         canvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* لتجنب التفاعل مع الطبقة */
+            pointer-events: none;
         }
-        #container {
-            position: relative;
-            display: inline-block;
-        }
+
+        /* الإخراج */
         #output {
             margin-top: 20px;
             font-size: 18px;
-            color: #333;
+            color: #00ff88;
+        }
+
+        /* النمط المخصص لآخر 5 باركودات */
+        .barcode-list {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 14px;
+            text-align: right;
+            line-height: 1.8;
+            width: calc(100% - 20px);
+            max-width: 580px;
+            overflow: hidden;
+        }
+
+        .barcode-list span {
+            color: #00ff88;
+        }
+
+        /* تحسين العرض للهواتف */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 20px;
+            }
+
+            p {
+                font-size: 16px;
+            }
+
+            .barcode-list {
+                font-size: 12px;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>ماسح الباركود مع إطار</h1>
+    <h1>ماسح الباركود - وضع داكن</h1>
     <p id="output">جاري تهيئة الكاميرا...</p>
     <div id="container">
         <video id="video" autoplay playsinline></video>
         <canvas id="overlay"></canvas>
+        <div class="barcode-list" id="barcodeList">
+            آخر 5 وصولات:
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
     <script>
@@ -50,9 +104,11 @@
         const overlay = document.getElementById("overlay");
         const context = overlay.getContext("2d");
         const output = document.getElementById("output");
+        const barcodeListElement = document.getElementById("barcodeList");
 
         let lastScannedBarcode = null;
-        const barcodeDatabase = {}; // قاعدة بيانات مؤقتة كبديل عن SQLite في الجانب الأمامي.
+        const barcodeDatabase = {}; // قاعدة بيانات مؤقتة
+        const lastBarcodes = []; // قائمة آخر 5 باركودات
 
         async function setupCamera() {
             try {
@@ -72,18 +128,17 @@
             }
         }
 
-        function drawBarcodesOnOverlay() {
-            context.font = "16px Arial";
-            context.fillStyle = "white";
-            context.textAlign = "left";
+        function updateBarcodeList(newBarcode, status) {
+            // أضف الباركود إلى القائمة مع الحالة
+            lastBarcodes.unshift({ barcode: newBarcode, status });
+            if (lastBarcodes.length > 5) {
+                lastBarcodes.pop(); // حافظ على آخر 5 باركودات فقط
+            }
 
-            // عرض الباركودات المكتشفة
-            const padding = 10;
-            const lineHeight = 20;
-            Object.keys(barcodeDatabase).slice(-5).forEach((barcode, index) => {
-                const status = barcodeDatabase[barcode] ? "✅" : "❌";
-                context.fillText(`${status} باركود ${index + 1}: ${barcode}`, padding, padding + lineHeight * (index + 1));
-            });
+            // تحديث العرض في واجهة المستخدم
+            barcodeListElement.innerHTML = "آخر 5 وصولات:<br>" + lastBarcodes
+                .map(item => `<span>${item.status === "✅" ? "جديد" : "مكرر"}:</span> ${item.barcode}`)
+                .join("<br>");
         }
 
         function scanBarcode() {
@@ -108,17 +163,17 @@
                 let statusIcon = "❌"; // افتراضي خطأ
 
                 if (code.data) {
-                    // تحقق مما إذا كان الباركود جديدًا
                     if (!barcodeDatabase[code.data]) {
                         frameColor = "green";
                         statusIcon = "✅";
                         barcodeDatabase[code.data] = true; // حفظ كأنه جديد
                         output.textContent = `تم اكتشاف باركود جديد: ${code.data}`;
+                        updateBarcodeList(code.data, "✅");
                     } else {
                         output.textContent = `تم اكتشاف باركود مكرر: ${code.data}`;
+                        updateBarcodeList(code.data, "❌");
                     }
 
-                    // رسم الإطار حول الباركود
                     if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
                         context.beginPath();
                         context.moveTo(topLeftCorner.x, topLeftCorner.y);
@@ -130,7 +185,6 @@
                         context.strokeStyle = frameColor;
                         context.stroke();
 
-                        // رسم الأيقونة في منتصف الإطار
                         const centerX = (topLeftCorner.x + bottomRightCorner.x) / 2;
                         const centerY = (topLeftCorner.y + bottomRightCorner.y) / 2;
                         context.font = "20px Arial";
@@ -142,9 +196,6 @@
             } else {
                 output.textContent = "جاري البحث عن باركود...";
             }
-
-            // عرض آخر الباركودات
-            drawBarcodesOnOverlay();
 
             requestAnimationFrame(scanBarcode);
         }
