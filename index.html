@@ -5,38 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ماسح الباركود</title>
     <style>
-        /* تصميم الصفحة */
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
             text-align: center;
-            background-color: #121212; /* لون داكن */
+            background-color: #121212;
             color: #f4f4f9;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
-
         h1 {
             margin-top: 10px;
             color: #0b84ed;
         }
-
         #container {
             position: relative;
             display: inline-block;
-            max-width: 100%;
-            width: 400px;
         }
-
         video {
             width: 100%;
             max-width: 400px;
             border: 2px solid #333;
             border-radius: 10px;
         }
-
         canvas {
             position: absolute;
             top: 0;
@@ -45,13 +35,11 @@
             height: 100%;
             pointer-events: none;
         }
-
         #output {
             margin-top: 10px;
             font-size: 18px;
             color: #0b84ed;
         }
-
         .barcode-list {
             margin-top: 20px;
             font-size: 16px;
@@ -60,22 +48,6 @@
             border-radius: 10px;
             padding: 10px;
             display: inline-block;
-            width: 100%;
-            max-width: 400px;
-            overflow-y: auto;
-            max-height: 150px;
-            margin-bottom: 20px;
-        }
-
-        @media (max-width: 600px) {
-            #container {
-                width: 100%;
-                max-width: 90%;
-            }
-
-            .barcode-list {
-                width: 90%;
-            }
         }
     </style>
 </head>
@@ -101,6 +73,14 @@
         const barcodeDatabase = new Set(); // قاعدة بيانات لتخزين الباركودات
         const lastBarcodes = []; // لتخزين آخر 5 باركودات
         let lastScanTime = 0; // الوقت للباركود الأخير
+        let lastDetectedBarcode = ""; // لتخزين آخر باركود تم اكتشافه
+        let lastDetectedLocation = null; // لتخزين آخر موقع للباركود
+
+        const scanCooldown = 1000; // فترة السكون بين كل قراءة
+        const locationThreshold = 20; // الحد الأدنى للتغيير في الإحداثيات
+        const frameTimeout = 3000; // فترة بقاء الإطار مرئيًا (بالملي ثانية)
+
+        let frameTimer = null; // لحفظ توقيت عرض الإطار
 
         async function setupCamera() {
             try {
@@ -131,29 +111,26 @@
             }
             lastBarcodes.push({ barcode, statusIcon });
 
-            // تحديث العرض
             barcodeListDiv.innerHTML = "آخر 5 باركودات:<br>" +
                 lastBarcodes.map(item => `${item.statusIcon} ${item.barcode}`).join("<br>");
         }
 
-        function drawBarcodeFrame(location, color, statusText) {
+        function drawBarcodeFrame(location, color, icon) {
             const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
 
-            // رسم الإطار
             context.beginPath();
             context.moveTo(topLeftCorner.x, topLeftCorner.y);
             context.lineTo(topRightCorner.x, topRightCorner.y);
             context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
             context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
             context.closePath();
-            context.lineWidth = 6;
+            context.lineWidth = 4;
             context.strokeStyle = color;
             context.stroke();
 
-            // وضع النص داخل الإطار
             context.fillStyle = color;
-            context.font = "bold 20px Arial";
-            context.fillText(statusText, topLeftCorner.x + 10, topLeftCorner.y + 30);
+            context.font = "bold 24px Arial";
+            context.fillText(icon, topLeftCorner.x + 10, topLeftCorner.y + 30);
         }
 
         function scanBarcode() {
@@ -172,24 +149,43 @@
             const code = jsQR(imageData.data, imageData.width, imageData.height);
 
             if (code) {
+                const barcodeData = code.data;
                 const currentTime = new Date().getTime();
-                if (currentTime - lastScanTime > 1000) { // تحقق من مرور ثانية
+
+                // تحقق من مرور الوقت الكافي (مرة واحدة في الثانية تقريبًا)
+                if (currentTime - lastScanTime > scanCooldown) {
                     lastScanTime = currentTime;
 
-                    const barcodeData = code.data;
-                    let frameColor = "red";
-                    let statusIcon = "❌";
-                    let statusText = "مكرر";
+                    // تحقق مما إذا كان الباركود هو نفسه أو تم اكتشافه في نفس الموقع تقريبًا
+                    if (barcodeData === lastDetectedBarcode) {
+                        const location = code.location;
+                        const distance = Math.sqrt(
+                            Math.pow(location.topLeftCorner.x - lastDetectedLocation.x, 2) +
+                            Math.pow(location.topLeftCorner.y - lastDetectedLocation.y, 2)
+                        );
 
-                    if (isNewBarcode(barcodeData)) {
-                        frameColor = "green";
-                        statusIcon = "✅";
-                        statusText = "جديد";
+                        // إذا كانت المسافة بين الموقعين أقل من threshold، نعتبره مكرر
+                        if (distance < locationThreshold) {
+                            console.log("الباركود مكرر: تم قراءته في نفس المكان");
+                            return;
+                        }
                     }
 
-                    output.textContent = `تم اكتشاف باركود: ${barcodeData} (${statusText})`;
-                    drawBarcodeFrame(code.location, frameColor, statusText);
-                    updateBarcodeList(barcodeData, statusIcon);
+                    lastDetectedBarcode = barcodeData;
+                    lastDetectedLocation = code.location;
+
+                    // مسح الباركود ورسم الإطار
+                    output.textContent = `تم اكتشاف باركود: ${barcodeData}`;
+                    drawBarcodeFrame(code.location, "green", "✅");
+
+                    // تحديث قائمة الباركودات
+                    updateBarcodeList(barcodeData, "✅");
+
+                    // إعادة ضبط المؤقت لإبقاء الإطار مرئيًا لفترة
+                    if (frameTimer) clearTimeout(frameTimer);
+                    frameTimer = setTimeout(() => {
+                        context.clearRect(0, 0, overlay.width, overlay.height); // مسح الإطار بعد مرور الوقت
+                    }, frameTimeout);
                 }
             }
 
