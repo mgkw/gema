@@ -3,13 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> 4 ماسح الباركود</title>
-    <script src="https://unpkg.com/@ericblade/quagga2/dist/quagga.min.js"></script>
+    <title>ماسح الباركود</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        video {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+            border: 2px solid #333;
+        }
+        canvas {
+            display: none;
+        }
+        #output {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
 </head>
 <body>
     <h1>ماسح الباركود</h1>
-    <div id="interactive" class="viewport"></div>
     <p id="output">جاري تهيئة الكاميرا...</p>
-    <script src="scanner.js"></script>
+    <video id="video" autoplay></video>
+    <canvas id="canvas"></canvas>
+
+    <!-- إضافة مكتبة jsQR -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
