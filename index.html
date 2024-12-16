@@ -1,79 +1,176 @@
-const barcodeDatabase = {}; // قاعدة بيانات لمعرفة الباركودات الجديدة
-const barcodeTimestamps = {}; // قاعدة بيانات لحفظ وقت قراءة كل باركود
-const lastBarcodes = []; // قائمة آخر 5 باركودات
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ماسح الباركود مع التكرار</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #fff;
+            text-align: center;
+        }
 
-function updateBarcodeList(newBarcode, status) {
-    // أضف الباركود إلى القائمة مع الحالة
-    lastBarcodes.unshift({ barcode: newBarcode, status });
-    if (lastBarcodes.length > 5) {
-        lastBarcodes.pop(); // حافظ على آخر 5 باركودات فقط
-    }
+        h1 {
+            margin-top: 10px;
+        }
 
-    // تحديث العرض في واجهة المستخدم
-    barcodeListElement.innerHTML = "آخر 5 وصولات:<br>" + lastBarcodes
-        .map(item => `<span>${item.status === "✅" ? "جديد" : "مكرر"}:</span> ${item.barcode}`)
-        .join("<br>");
-}
+        #container {
+            position: relative;
+            display: inline-block;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 600px;
+        }
 
-function scanBarcode() {
-    overlay.width = video.videoWidth;
-    overlay.height = video.videoHeight;
+        video, canvas {
+            width: 100%;
+            border-radius: 10px;
+        }
 
-    context.clearRect(0, 0, overlay.width, overlay.height);
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const tempContext = canvas.getContext("2d");
+        #output {
+            margin: 15px 0;
+            font-size: 18px;
+            color: #0dbf57;
+        }
 
-    tempContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+        #barcodeList {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 16px;
+        }
 
-    const imageData = tempContext.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
+        #barcodeList span {
+            color: #ff5252;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>ماسح الباركود مع التكرار</h1>
+    <p id="output">جاري تهيئة الكاميرا...</p>
+    <div id="container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="overlay"></canvas>
+    </div>
+    <div id="barcodeList"></div>
 
-    if (code) {
-        const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
+    <!-- مكتبة jsQR -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <script>
+        const video = document.getElementById("video");
+        const overlay = document.getElementById("overlay");
+        const context = overlay.getContext("2d");
+        const output = document.getElementById("output");
+        const barcodeListElement = document.getElementById("barcodeList");
 
-        let frameColor = "red"; // افتراضي مكرر
-        let statusIcon = "❌"; // افتراضي خطأ
+        const barcodeDatabase = {}; // لتخزين الأرقام
+        const lastBarcodes = []; // قائمة آخر 5 باركودات
 
-        if (code.data) {
-            const currentTime = Date.now(); // الوقت الحالي بالميلي ثانية
-
-            // تحقق إذا كان الباركود موجودًا وتمت قراءته مؤخرًا
-            if (!barcodeDatabase[code.data] || (currentTime - barcodeTimestamps[code.data]) > 1000) {
-                frameColor = "green";
-                statusIcon = "✅";
-                barcodeDatabase[code.data] = true; // اعتبره جديدًا
-                barcodeTimestamps[code.data] = currentTime; // حدث زمن القراءة
-                output.textContent = `تم اكتشاف باركود جديد: ${code.data}`;
-                updateBarcodeList(code.data, "✅");
-            } else {
-                output.textContent = `تم اكتشاف باركود مكرر: ${code.data}`;
-                updateBarcodeList(code.data, "❌");
-            }
-
-            if (topLeftCorner && topRightCorner && bottomRightCorner && bottomLeftCorner) {
-                context.beginPath();
-                context.moveTo(topLeftCorner.x, topLeftCorner.y);
-                context.lineTo(topRightCorner.x, topRightCorner.y);
-                context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
-                context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
-                context.closePath();
-                context.lineWidth = 4;
-                context.strokeStyle = frameColor;
-                context.stroke();
-
-                const centerX = (topLeftCorner.x + bottomRightCorner.x) / 2;
-                const centerY = (topLeftCorner.y + bottomRightCorner.y) / 2;
-                context.font = "20px Arial";
-                context.fillStyle = frameColor;
-                context.textAlign = "center";
-                context.fillText(statusIcon, centerX, centerY);
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: 1280, height: 720 }
+                });
+                video.srcObject = stream;
+                output.textContent = "الكاميرا جاهزة. جاري مسح أكواد QR...";
+            } catch (error) {
+                console.error("فشل إعداد الكاميرا:", error);
+                output.textContent = "فشل الوصول إلى الكاميرا. تأكد من الأذونات.";
             }
         }
-    } else {
-        output.textContent = "جاري البحث عن باركود...";
-    }
 
-    requestAnimationFrame(scanBarcode);
-}
+        function extractNumber(barcodeData) {
+            return barcodeData.replace(/\D/g, ""); // استخراج الأرقام فقط
+        }
+
+        function updateBarcodeList(newBarcode, status) {
+            lastBarcodes.unshift({ barcode: newBarcode, status });
+            if (lastBarcodes.length > 5) {
+                lastBarcodes.pop();
+            }
+
+            // تحديث واجهة آخر 5 باركودات
+            barcodeListElement.innerHTML = "آخر 5 وصولات:<br>" + lastBarcodes
+                .map(item => `<span>${item.status === "✅" ? "جديد" : "مكرر"}:</span> ${item.barcode}`)
+                .join("<br>");
+        }
+
+        function drawBarcodeFrame(location, color, icon) {
+            const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
+
+            // رسم الإطار
+            context.beginPath();
+            context.moveTo(topLeftCorner.x, topLeftCorner.y);
+            context.lineTo(topRightCorner.x, topRightCorner.y);
+            context.lineTo(bottomRightCorner.x, bottomRightCorner.y);
+            context.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
+            context.closePath();
+            context.lineWidth = 4;
+            context.strokeStyle = color;
+            context.stroke();
+
+            // وضع علامة ✅ أو ❌
+            const centerX = (topLeftCorner.x + bottomRightCorner.x) / 2;
+            const centerY = (topLeftCorner.y + bottomRightCorner.y) / 2;
+            context.font = "30px Arial";
+            context.fillStyle = color;
+            context.textAlign = "center";
+            context.fillText(icon, centerX, centerY);
+        }
+
+        function scanBarcode() {
+            overlay.width = video.videoWidth;
+            overlay.height = video.videoHeight;
+            context.clearRect(0, 0, overlay.width, overlay.height);
+
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
+            const tempContext = tempCanvas.getContext("2d");
+
+            tempContext.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+            const imageData = tempContext.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (code) {
+                const extractedNumber = extractNumber(code.data);
+
+                let frameColor = "red"; // افتراضي: مكرر
+                let statusIcon = "❌";
+                let statusText = "مكرر";
+
+                // التحقق من التكرار
+                if (!barcodeDatabase[extractedNumber]) {
+                    barcodeDatabase[extractedNumber] = true;
+                    frameColor = "green"; // باركود جديد
+                    statusIcon = "✅";
+                    statusText = "جديد";
+                }
+
+                output.textContent = `تم اكتشاف باركود: ${extractedNumber} (${statusText})`;
+
+                // رسم الإطار والعلامة
+                drawBarcodeFrame(code.location, frameColor, statusIcon);
+
+                // تحديث قائمة آخر 5 باركودات
+                updateBarcodeList(extractedNumber, statusIcon);
+            } else {
+                output.textContent = "جاري البحث عن باركود...";
+            }
+
+            requestAnimationFrame(scanBarcode);
+        }
+
+        // إعداد الكاميرا
+        setupCamera().then(() => {
+            video.addEventListener("play", () => {
+                scanBarcode();
+            });
+        });
+    </script>
+</body>
+</html>
